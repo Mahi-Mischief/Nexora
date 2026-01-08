@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexora_final/models/user.dart';
+import 'package:nexora_final/services/auth_service.dart';
+
+// Note: AuthNotifier now uses `AuthService` to call backend APIs and persists the JWT.
 
 class AuthState {
   final NexoraUser? user;
@@ -24,7 +27,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString('nexora_user');
-    if (s != null) {
+    final token = prefs.getString('nexora_token');
+    if (token != null) {
+      // attempt to load profile from backend
+      try {
+        final profile = await AuthService.me(token);
+        if (profile != null) {
+          state = state.copyWith(user: profile);
+        }
+      } catch (_) {
+        // ignore, user will need to log in
+      }
+    } else if (s != null) {
       try {
         final j = jsonDecode(s) as Map<String, dynamic>;
         state = state.copyWith(user: NexoraUser.fromJson(j));
@@ -32,37 +46,48 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> signup(String username, String email, String password) async {
-    // For demo, ignore password complexity; store minimal user
-    final user = NexoraUser(username: username, email: email);
-    state = state.copyWith(user: user);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('nexora_user', jsonEncode(user.toJson()));
+  Future<bool> signup(String username, String email, String password) async {
+    final res = await AuthService.signup(username: username, email: email, password: password);
+    if (res != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nexora_token', res['token']);
+      await prefs.setString('nexora_user', jsonEncode(res['user']));
+      state = state.copyWith(user: NexoraUser.fromJson(res['user']));
+      return true;
+    }
+    return false;
   }
 
-  Future<void> login(String usernameOrEmail, String password) async {
-    // For demo, accept any credentials if they match stored user
-    final prefs = await SharedPreferences.getInstance();
-    final s = prefs.getString('nexora_user');
-    if (s != null) {
-      final j = jsonDecode(s) as Map<String, dynamic>;
-      final u = NexoraUser.fromJson(j);
-      if (u.username == usernameOrEmail || u.email == usernameOrEmail) {
-        state = state.copyWith(user: u);
-      }
+  Future<bool> login(String usernameOrEmail, String password) async {
+    final res = await AuthService.login(usernameOrEmail: usernameOrEmail, password: password);
+    if (res != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nexora_token', res['token']);
+      await prefs.setString('nexora_user', jsonEncode(res['user']));
+      state = state.copyWith(user: NexoraUser.fromJson(res['user']));
+      return true;
     }
+    return false;
   }
 
   Future<void> logout() async {
     state = AuthState();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('nexora_user');
+    await prefs.remove('nexora_token');
   }
 
   Future<void> updateUser(NexoraUser user) async {
     state = state.copyWith(user: user);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nexora_user', jsonEncode(user.toJson()));
+    final token = prefs.getString('nexora_token');
+    if (token != null) {
+      // attempt to persist changes to backend
+      try {
+        await AuthService.updateProfile(token: token, user: user);
+      } catch (_) {}
+    }
   }
 }
 
