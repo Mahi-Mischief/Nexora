@@ -1,9 +1,18 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class Api {
-  // Use emulator host. Update when pointing to production.
-  static const String baseUrl = 'http://10.0.2.2:3000';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    } else if (Platform.isAndroid) {
+      return 'http://10.0.2.2:3000';
+    } else {
+      return 'http://localhost:3000';
+    }
+  }
 
   static Future<http.Response> post(String path, {Map<String, dynamic>? body, String? token}) {
     final uri = Uri.parse('$baseUrl$path');
