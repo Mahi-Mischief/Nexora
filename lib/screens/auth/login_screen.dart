@@ -4,6 +4,7 @@ import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/screens/auth/signup_screen.dart';
 import 'package:nexora_final/screens/profile_info_screen.dart';
 import 'package:nexora_final/screens/home_screen.dart';
+import 'package:nexora_final/screens/ai_chatbot_page.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   static const routeName = '/login';
@@ -94,6 +95,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   onPressed: () => Navigator.of(context).pushNamed(SignupScreen.routeName),
                   child: const Text('Create an account'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.blueAccent),
+                    foregroundColor: Colors.blueAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (ctx) => const AIChatbotPage()),
+                  ),
+                  child: const Text('Chat with AI Assistant'),
                 ),
               ),
             ],
