@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexora_final/services/announcement_service.dart';
 import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/screens/calendar_screen.dart';
 import 'package:nexora_final/screens/news_screen.dart';
 import 'package:nexora_final/screens/resources_screen.dart';
 import 'package:nexora_final/screens/chat_screen.dart';
 import 'package:nexora_final/screens/ai_chat_screen.dart';
+import 'package:nexora_final/screens/gemini_chat_screen.dart';
 import 'package:nexora_final/widgets/app_drawer.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -29,13 +32,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authProvider).user;
+    ref.watch(authProvider);
     return Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SvgPicture.asset('assets/logo.svg', width: 28, height: 28, color: Theme.of(context).colorScheme.secondary),
+            SvgPicture.asset('assets/logo.svg', width: 28, height: 28, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn)),
             const SizedBox(width: 8),
             const Text('NEXORA'),
           ],
@@ -64,7 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _HomeContent extends StatelessWidget {
-  const _HomeContent({super.key});
+  const _HomeContent();
 
   @override
   Widget build(BuildContext context) {
@@ -107,13 +110,29 @@ class _HomeContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              title: const Text('News Feed'),
-              subtitle: const Text('Latest announcements'),
-              trailing: const Icon(Icons.rss_feed),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewsScreen())),
-            ),
+          FutureBuilder<List<dynamic>>(
+            future: () async {
+              final prefs = await SharedPreferences.getInstance();
+              final token = prefs.getString('nexora_token');
+              return AnnouncementService.fetchAnnouncements(token: token);
+            }(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const SizedBox();
+              final items = snapshot.data ?? [];
+              return Column(
+                children: items.map((item) {
+                  final title = item['title'] ?? 'Announcement';
+                  final content = item['content'] ?? '';
+                  return Card(
+                    child: ListTile(
+                      title: Text(title),
+                      subtitle: Text(content),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewsScreen())),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Card(
@@ -137,7 +156,9 @@ class _HomeContent extends StatelessWidget {
           const SizedBox(height: 20),
           const Text('AI Assistant', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AIChatScreen())), child: const Text('Ask NEXORA'))
+          ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AIChatScreen())), child: const Text('Ask NEXORA')),
+          const SizedBox(height: 8),
+          ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GeminiChatScreen())), child: const Text('Gemini Chat'))
         ],
       ),
     );

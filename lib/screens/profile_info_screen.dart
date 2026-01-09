@@ -69,6 +69,7 @@ class _ProfileInfoScreenState extends ConsumerState<ProfileInfoScreen> {
                   final current = ref.read(authProvider).user;
                   if (current != null) {
                     final updated = NexoraUser(
+                      id: current.id,
                       username: current.username,
                       email: current.email,
                       firstName: _first.text.isEmpty ? null : _first.text,
@@ -77,8 +78,11 @@ class _ProfileInfoScreenState extends ConsumerState<ProfileInfoScreen> {
                       age: int.tryParse(_age.text),
                       grade: _grade.text.isEmpty ? null : _grade.text,
                       address: _address.text.isEmpty ? null : _address.text,
+                      role: current.role,
                     );
                     await ref.read(authProvider.notifier).updateUser(updated);
+                    if (!mounted) return;
+                    // ignore: use_build_context_synchronously
                     Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
                   }
                 },

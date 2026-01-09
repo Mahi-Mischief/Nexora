@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexora_final/screens/splash_screen.dart';
@@ -10,7 +12,21 @@ import 'package:nexora_final/screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: NexoraApp()));
+
+  FlutterError.onError = (details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+
+  runZonedGuarded(() {
+    runApp(const ProviderScope(child: NexoraApp()));
+  }, (error, stack) {
+    // Ensure uncaught errors are printed to the console for easier debugging
+    // during development.
+    // ignore: avoid_print
+    print('Uncaught zone error: $error');
+    // ignore: avoid_print
+    print(stack);
+  });
 }
 
 class NexoraApp extends ConsumerWidget {
@@ -18,7 +34,7 @@ class NexoraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
+    ref.watch(authProvider);
     return MaterialApp(
       title: 'NEXORA',
       theme: nexoraTheme,

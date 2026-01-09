@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexora_final/services/message_service.dart';
+
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -11,10 +14,20 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, String>> _messages = [];
   final _ctrl = TextEditingController();
 
-  void _send({String type = 'message'}) {
+  void _send({String type = 'message'}) async {
     if (_ctrl.text.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('nexora_token');
+    // demo: send to admin user id 1 if available
+    final toUserId = 1;
+    final content = _ctrl.text.trim();
+    final res = await MessageService.sendMessage(toUserId: toUserId, content: content, token: token, type: type);
     setState(() {
-      _messages.add({'from': 'me', 'text': _ctrl.text.trim(), 'type': type, 'status': type == 'request' ? 'pending' : 'sent'});
+      if (res != null) {
+        _messages.add({'from': 'me', 'text': res['content'] ?? content, 'type': res['type'] ?? type, 'status': res['status'] ?? 'sent'});
+      } else {
+        _messages.add({'from': 'me', 'text': content, 'type': type, 'status': 'failed'});
+      }
       _ctrl.clear();
     });
   }

@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,25 +42,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    await ref.read(authProvider.notifier).login(_userCtrl.text, _passCtrl.text);
-                    final auth = ref.read(authProvider);
-                    if (auth.user != null) {
-                      // If profile incomplete, go to profile info
-                      if (auth.user!.firstName == null) {
-                        Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
-                      } else {
-                        Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
-                      }
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No user found. Please sign up.')));
-                    }
-                  }
-                },
-                child: const Text('Login'),
-              ),
+              _loading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          setState(() => _loading = true);
+                          final ok = await ref.read(authProvider.notifier).login(_userCtrl.text, _passCtrl.text);
+                          if (!mounted) return;
+                          setState(() => _loading = false);
+                          if (ok) {
+                            final auth = ref.read(authProvider);
+                            if (auth.user != null && auth.user!.firstName == null) {
+                              // ignore: use_build_context_synchronously
+                              Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                            } else {
+                              // ignore: use_build_context_synchronously
+                              Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+                            }
+                          } else {
+                            // ignore: use_build_context_synchronously
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+                          }
+                        }
+                      },
+                      child: const Text('Login'),
+                    ),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () => Navigator.of(context).pushNamed(SignupScreen.routeName),

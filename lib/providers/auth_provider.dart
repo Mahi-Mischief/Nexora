@@ -28,21 +28,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString('nexora_user');
     final token = prefs.getString('nexora_token');
-    if (token != null) {
-      // attempt to load profile from backend
-      try {
-        final profile = await AuthService.me(token);
-        if (profile != null) {
-          state = state.copyWith(user: profile);
-        }
-      } catch (_) {
-        // ignore, user will need to log in
-      }
-    } else if (s != null) {
+    // Load any cached user first so UI isn't blocked by network checks
+    if (s != null) {
       try {
         final j = jsonDecode(s) as Map<String, dynamic>;
         state = state.copyWith(user: NexoraUser.fromJson(j));
       } catch (_) {}
+    }
+
+    // If token exists, validate it in background (fire-and-forget) but don't block init
+    if (token != null) {
+      AuthService.me(token).then((profile) async {
+        if (profile != null) {
+          state = state.copyWith(user: profile);
+          final prefs2 = await SharedPreferences.getInstance();
+          await prefs2.setString('nexora_user', jsonEncode(profile.toJson()));
+        }
+      }).catchError((_) {});
     }
   }
 
@@ -81,12 +83,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(user: user);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nexora_user', jsonEncode(user.toJson()));
+    // Fire-and-forget remote update so UI flow (splash/login) isn't blocked by network
     final token = prefs.getString('nexora_token');
     if (token != null) {
-      // attempt to persist changes to backend
-      try {
-        await AuthService.updateProfile(token: token, user: user);
-      } catch (_) {}
+      AuthService.updateProfile(token: token, user: user).catchError((_) {});
     }
   }
 }

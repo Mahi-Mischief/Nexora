@@ -16,6 +16,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _userCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  bool _loading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,15 +47,26 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    await ref.read(authProvider.notifier).signup(_userCtrl.text, _emailCtrl.text, _passCtrl.text);
-                    Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
-                  }
-                },
-                child: const Text('Sign Up'),
-              ),
+              _loading
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          setState(() => _loading = true);
+                          final ok = await ref.read(authProvider.notifier).signup(_userCtrl.text, _emailCtrl.text, _passCtrl.text);
+                          if (!mounted) return;
+                          setState(() => _loading = false);
+                          if (ok) {
+                            // ignore: use_build_context_synchronously
+                            Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                          } else {
+                            // ignore: use_build_context_synchronously
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not create account')));
+                          }
+                        }
+                      },
+                      child: const Text('Sign Up'),
+                    ),
             ],
           ),
         ),

@@ -25,4 +25,18 @@ class Api {
     if (token != null) headers['Authorization'] = 'Bearer $token';
     return http.put(uri, headers: headers, body: jsonEncode(body ?? {}));
   }
+
+  static Future<http.Response> patch(String path, {Map<String, dynamic>? body, String? token}) {
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null) headers['Authorization'] = 'Bearer $token';
+    return http.patch(uri, headers: headers, body: jsonEncode(body ?? {}));
+  }
+
+  static Future<http.Response> delete(String path, {String? token}) {
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = {'Content-Type': 'application/json'};
+    if (token != null) headers['Authorization'] = 'Bearer $token';
+    return http.delete(uri, headers: headers);
+  }
 }
