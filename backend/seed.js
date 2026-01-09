@@ -1,9 +1,27 @@
-const db = require('./db');
+const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 async function run() {
   try {
+    // Create database if it doesn't exist
+    const adminPool = new Pool({
+      connectionString: process.env.DATABASE_URL.replace('/nexora_db', ''),
+    });
+    
+    try {
+      await adminPool.query('CREATE DATABASE nexora_db');
+      console.log('Created nexora_db database');
+    } catch (e) {
+      if (!e.message.includes('already exists')) {
+        throw e;
+      }
+    }
+    await adminPool.end();
+
+    // Connect to the actual database
+    const db = require('./db');
+    
     // Run schema
     const fs = require('fs');
     const path = require('path');
