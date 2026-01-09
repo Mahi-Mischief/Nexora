@@ -10,16 +10,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role } = req.body;
     if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
 
     const { rows } = await db.query('SELECT id FROM users WHERE username=$1 OR email=$2', [username, email]);
     if (rows.length) return res.status(409).json({ error: 'User already exists' });
 
     const hashed = await bcrypt.hash(password, 10);
+    const userRole = role && (role === 'teacher' || role === 'student') ? role : 'student';
     const insert = await db.query(
       'INSERT INTO users (username, email, password_hash, role, created_at) VALUES ($1,$2,$3,$4,now()) RETURNING id, username, email, role',
-      [username, email, hashed, 'student']
+      [username, email, hashed, userRole]
     );
     const user = insert.rows[0];
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });

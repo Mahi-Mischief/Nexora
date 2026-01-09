@@ -48,8 +48,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> signup(String username, String email, String password) async {
-    final res = await AuthService.signup(username: username, email: email, password: password);
+  Future<bool> signup(String username, String email, String password, String role) async {
+    final res = await AuthService.signup(username: username, email: email, password: password, role: role);
     if (res != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('nexora_token', res['token']);

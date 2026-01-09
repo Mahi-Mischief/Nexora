@@ -4,7 +4,6 @@ import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/screens/auth/signup_screen.dart';
 import 'package:nexora_final/screens/profile_info_screen.dart';
 import 'package:nexora_final/screens/home_screen.dart';
-import 'package:nexora_final/screens/ai_chatbot_page.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   static const routeName = '/login';
@@ -23,98 +22,130 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: AppBar(title: const Text('Login')),
+      backgroundColor: const Color(0xFF0E1A2B),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        physics: const BouncingScrollPhysics(),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _userCtrl,
-                decoration: const InputDecoration(labelText: 'Username or Email'),
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 40),
+            Center(
+              child: Text(
+                'N',
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE3B857),
+                ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _passCtrl,
-                decoration: const InputDecoration(labelText: 'Password'),
-                obscureText: true,
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+            ),
+            const SizedBox(height: 8),
+            const Center(
+              child: Text(
+                'NEXORA',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                ),
               ),
-              const SizedBox(height: 20),
-              _loading
-                  ? const CircularProgressIndicator()
-                  : SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Theme.of(context).colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            setState(() => _loading = true);
-                            final ok = await ref.read(authProvider.notifier).login(_userCtrl.text, _passCtrl.text);
-                            if (!mounted) return;
-                            setState(() => _loading = false);
-                            if (ok) {
-                              final auth = ref.read(authProvider);
-                              if (auth.user != null && auth.user!.firstName == null) {
-                                // ignore: use_build_context_synchronously
-                                Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
-                              } else {
-                                // ignore: use_build_context_synchronously
-                                Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
-                              }
-                            } else {
-                              // ignore: use_build_context_synchronously
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
-                            }
-                          }
-                        },
-                        child: const Text('Login', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
+            ),
+            const SizedBox(height: 40),
+            Text(
+              'WELCOME!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 30),
+            Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _userCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'Enter your email',
                     ),
-              const SizedBox(height: 12),
-              const Text("Don't have an account yet? SignUp", textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white54),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                   ),
-                  onPressed: () => Navigator.of(context).pushNamed(SignupScreen.routeName),
-                  child: const Text('Create an account'),
-                ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      hintText: 'Enter your password',
+                    ),
+                    obscureText: true,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  _loading
+                      ? const CircularProgressIndicator()
+                      : ElevatedButton(
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() => _loading = true);
+                              final ok = await ref.read(authProvider.notifier).login(_userCtrl.text, _passCtrl.text);
+                              if (!mounted) return;
+                              setState(() => _loading = false);
+                              if (ok) {
+                                final auth = ref.read(authProvider);
+                                if (auth.user != null && auth.user!.firstName == null) {
+                                  Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                                } else {
+                                  Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+                              }
+                            }
+                          },
+                          child: const Text('Log In'),
+                        ),
+                ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.blueAccent),
-                    foregroundColor: Colors.blueAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (ctx) => const AIChatbotPage()),
-                  ),
-                  child: const Text('Chat with AI Assistant'),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.white24)),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('OR', style: TextStyle(color: Colors.white54)),
                 ),
-              ),
-            ],
-          ),
+                Expanded(child: Divider(color: Colors.white24)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              icon: Icon(Icons.account_circle),
+              label: const Text('Continue with Google'),
+              onPressed: () {},
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Don't have an account? ",
+                  style: TextStyle(color: Colors.white70),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pushNamed(SignupScreen.routeName),
+                  child: Text(
+                    'Sign up',
+                    style: TextStyle(
+                      color: Color(0xFFE3B857),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

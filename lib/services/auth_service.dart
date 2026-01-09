@@ -3,9 +3,9 @@ import 'package:nexora_final/services/api.dart';
 import 'package:nexora_final/models/user.dart';
 
 class AuthService {
-  static Future<Map<String, dynamic>?> signup({required String username, required String email, required String password}) async {
+  static Future<Map<String, dynamic>?> signup({required String username, required String email, required String password, required String role}) async {
     try {
-      final resp = await Api.post('/api/auth/signup', body: {'username': username, 'email': email, 'password': password});
+      final resp = await Api.post('/api/auth/signup', body: {'username': username, 'email': email, 'password': password, 'role': role});
       if (resp.statusCode == 200) {
         final j = jsonDecode(resp.body) as Map<String, dynamic>;
         return j;
