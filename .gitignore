@@ -43,3 +43,22 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# =========================
+# Node / Backend (Nexora)
+# =========================
+node_modules/
+backend/node_modules/
+
+# Environment variables
+.env
+backend/.env
+
+# Firebase / secrets
+*.json
+backend/*adminsdk*.json
+
+# PostgreSQL local files (if any)
+*.sqlite
+*.db
+
