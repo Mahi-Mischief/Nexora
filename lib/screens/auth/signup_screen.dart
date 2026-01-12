@@ -76,15 +76,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
                             setState(() => _loading = true);
-                            final ok = await ref.read(authProvider.notifier).signup(_userCtrl.text, _emailCtrl.text, _passCtrl.text);
-                            if (!mounted) return;
-                            setState(() => _loading = false);
-                            if (ok) {
+                            try {
+                              final ok = await ref.read(authProvider.notifier).signup(_userCtrl.text, _emailCtrl.text, _passCtrl.text);
+                              if (!mounted) return;
+                              setState(() => _loading = false);
+                              if (ok) {
+                                // ignore: use_build_context_synchronously
+                                Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                              } else {
+                                // ignore: use_build_context_synchronously
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not create account. User may already exist.')));
+                              }
+                            } catch (e) {
+                              if (!mounted) return;
+                              setState(() => _loading = false);
                               // ignore: use_build_context_synchronously
-                              Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
-                            } else {
-                              // ignore: use_build_context_synchronously
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not create account')));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                             }
                           }
                         },
