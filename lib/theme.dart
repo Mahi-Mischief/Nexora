@@ -4,7 +4,6 @@ const Color _nexoraDark = Color(0xFF0E1A2B); // deep navy blue
 const Color _nexoraGold = Color(0xFFE3B857); // gold/muted yellow
 const Color _darkGray = Color(0xFF1A2A3F); // slightly lighter navy
 const Color _lightGray = Color(0xFFB0B8C1); // light gray
-const Color _darkGrayText = Color(0xFF6B7280); // darker gray for disabled
 
 final ThemeData nexoraTheme = ThemeData(
   brightness: Brightness.dark,

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:nexora_final/services/api.dart';
 import 'package:nexora_final/models/user.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:nexora_final/services/google_signin.dart' show getGoogleAuthTokens;
 
 class AuthService {
@@ -21,7 +21,7 @@ class AuthService {
         throw Exception(j['error'] ?? 'Signup failed');
       }
     } catch (e) {
-      print('Signup error: $e');
+      debugPrint('Signup error: $e');
       return null;
     }
   }
@@ -37,7 +37,7 @@ class AuthService {
         throw Exception(j['error'] ?? 'Login failed');
       }
     } catch (e) {
-      print('Login error: $e');
+      debugPrint('Login error: $e');
       return null;
     }
   }
@@ -51,7 +51,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print('Me error: $e');
+      debugPrint('Me error: $e');
       return null;
     }
   }
@@ -70,7 +70,7 @@ class AuthService {
       if (id == null) return;
       await Api.put('/api/users/$id', body: body, token: token);
     } catch (e) {
-      print('Update profile error: $e');
+      debugPrint('Update profile error: $e');
       rethrow;
     }
   }
@@ -95,7 +95,7 @@ class AuthService {
         return idToken;
       }
     } catch (e) {
-      print('Google sign-in error: $e');
+      debugPrint('Google sign-in error: $e');
       return null;
     }
   }

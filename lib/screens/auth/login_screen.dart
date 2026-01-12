@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
@@ -7,11 +8,9 @@ import 'package:nexora_final/services/auth_service.dart';
 import 'package:nexora_final/services/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexora_final/models/user.dart';
-import 'package:nexora_final/screens/home_screen.dart';
-import 'package:nexora_final/screens/profile_info_screen.dart';
 import 'package:nexora_final/screens/auth/signup_screen.dart';
-import 'package:nexora_final/screens/profile_info_screen.dart';
 import 'package:nexora_final/screens/home_screen.dart';
+import 'package:nexora_final/screens/profile_info_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   static const routeName = '/login';
