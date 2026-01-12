@@ -17,13 +17,23 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     try {
-      await Firebase.initializeApp();
+      // Firebase web configuration from Firebase Console
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyCkaov-F4g9x_Mg9THqiSYnUeqUlhpixA4',
+          appId: '1:174980226928:web:8936c90c1056fb2fc579b5',
+          messagingSenderId: '174980226928',
+          projectId: 'nexora-8c5e6',
+          authDomain: 'nexora-8c5e6.firebaseapp.com',
+          storageBucket: 'nexora-8c5e6.firebasestorage.app',
+        ),
+      );
       FirebaseFlag.setConfigured(true);
     } catch (e) {
       // Firebase not configured for web — mark flag and continue so app doesn't crash.
       // The splash screen will show instructions.
       // ignore: avoid_print
-      print('Firebase initialization failed: $e');
+      debugPrint('Firebase initialization failed: $e');
       FirebaseFlag.setConfigured(false);
     }
 
@@ -36,9 +46,9 @@ void main() {
     // Ensure uncaught errors are printed to the console for easier debugging
     // during development.
     // ignore: avoid_print
-    print('Uncaught zone error: $error');
+    debugPrint('Uncaught zone error: $error');
     // ignore: avoid_print
-    print(stack);
+    debugPrint('$stack');
   });
 }
 
