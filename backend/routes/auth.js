@@ -12,10 +12,8 @@ const admin = require('../firebaseAdmin');
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
+    console.log('Signup attempt:', { username, email, role });
     if (!username || !email || !password) return res.status(400).json({ error: 'Missing fields' });
-
-    const { rows } = await db.query('SELECT id FROM users WHERE username=$1 OR email=$2', [username, email]);
-    if (rows.length) return res.status(409).json({ error: 'User already exists' });
 
     const hashed = await bcrypt.hash(password, 10);
     const userRole = role && (role === 'teacher' || role === 'student') ? role : 'student';
@@ -25,8 +23,13 @@ router.post('/signup', async (req, res) => {
     );
     const user = insert.rows[0];
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    console.log('User created successfully:', user.id);
     res.json({ token, user });
   } catch (err) {
+    if (err && err.code === '23505') {
+      console.error('SIGNUP DUPLICATE:', err.detail || err.message);
+      return res.status(409).json({ error: 'Username or email already in use' });
+    }
     console.error('SIGNUP ERROR:', err.message, err.code);
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
@@ -38,13 +41,14 @@ router.post('/login', async (req, res) => {
     const { usernameOrEmail, password } = req.body;
     if (!usernameOrEmail || !password) return res.status(400).json({ error: 'Missing fields' });
 
-    const { rows } = await db.query('SELECT id, username, email, password_hash, role FROM users WHERE username=$1 OR email=$1', [usernameOrEmail]);
+    const lowerInput = usernameOrEmail.toLowerCase();
+    const { rows } = await db.query('SELECT id, username, email, password_hash, role, first_name, last_name, school, age, grade, address FROM users WHERE LOWER(username)=$1 OR LOWER(email)=$1', [lowerInput]);
     if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
     const user = rows[0];
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role, first_name: user.first_name, last_name: user.last_name, school: user.school, age: user.age, grade: user.grade, address: user.address } });
   } catch (err) {
     console.error('LOGIN ERROR:', err.message, err.code);
     res.status(500).json({ error: 'Server error: ' + err.message });

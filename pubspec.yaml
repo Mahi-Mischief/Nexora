@@ -68,6 +68,8 @@ flutter:
 
   assets:
     - assets/logo.svg
+    - assets/fbla_logo.png
+    - assets/Nexora_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

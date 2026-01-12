@@ -10,6 +10,7 @@ function authMiddleware(req, res, next) {
   try {
     const payload = jwt.verify(token, secret);
     req.user = payload; // { id, username, role }
+    req.userId = payload.id;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });

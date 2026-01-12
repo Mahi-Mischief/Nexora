@@ -86,7 +86,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // Fire-and-forget remote update so UI flow (splash/login) isn't blocked by network
     final token = prefs.getString('nexora_token');
     if (token != null) {
-      AuthService.updateProfile(token: token, user: user).catchError((_) {});
+      AuthService.updateProfile(token: token, user: user).catchError((e) {
+        // Log error but don't block UI
+        print('Error updating profile: $e');
+      });
     }
   }
 }

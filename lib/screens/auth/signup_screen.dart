@@ -160,7 +160,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             if (!mounted) return;
                             setState(() => _loading = false);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
+                              SnackBar(content: Text('Sign-up error: $e')),
                             );
                           }
                         }

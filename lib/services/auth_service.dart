@@ -9,6 +9,8 @@ class AuthService {
   static Future<Map<String, dynamic>?> signup({required String username, required String email, required String password, required String role}) async {
     try {
       final resp = await Api.post('/api/auth/signup', body: {'username': username, 'email': email, 'password': password, 'role': role});
+      debugPrint('Signup response status: ${resp.statusCode}');
+      debugPrint('Signup response body: ${resp.body}');
       if (resp.statusCode == 200) {
         final j = jsonDecode(resp.body) as Map<String, dynamic>;
         return j;
@@ -18,7 +20,7 @@ class AuthService {
         throw Exception(j['error'] ?? 'User already exists');
       } else {
         final j = jsonDecode(resp.body) as Map<String, dynamic>;
-        throw Exception(j['error'] ?? 'Signup failed');
+        throw Exception(j['error'] ?? 'Signup failed with status ${resp.statusCode}');
       }
     } catch (e) {
       debugPrint('Signup error: $e');
@@ -68,7 +70,11 @@ class AuthService {
       };
       final id = user.id;
       if (id == null) return;
-      await Api.put('/api/users/$id', body: body, token: token);
+      final resp = await Api.put('/api/users/$id', body: body, token: token);
+      debugPrint('Update profile response: ${resp.statusCode}');
+      if (resp.statusCode != 200) {
+        throw Exception('Failed to update profile: ${resp.statusCode} ${resp.body}');
+      }
     } catch (e) {
       debugPrint('Update profile error: $e');
       rethrow;
