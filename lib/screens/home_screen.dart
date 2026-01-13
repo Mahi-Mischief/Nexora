@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexora_final/services/announcement_service.dart';
 import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/screens/calendar_screen.dart';
+import 'package:nexora_final/screens/events_screen.dart';
+import 'package:nexora_final/screens/activities_screen.dart';
 import 'package:nexora_final/screens/news_screen.dart';
 import 'package:nexora_final/screens/resources_screen.dart';
 import 'package:nexora_final/screens/chat_screen.dart';
@@ -26,7 +28,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _pages = const [
     _HomeContent(),
     CalendarScreen(),
-    NewsScreen(),
+    EventsScreen(),
+    ActivitiesScreen(),
     ResourcesScreen(),
   ];
 
@@ -54,7 +57,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Calendar'),
-          BottomNavigationBarItem(icon: Icon(Icons.article), label: 'News'),
+          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
+          BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism), label: 'Activities'),
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Resources'),
         ],
       ),
@@ -66,11 +70,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _HomeContent extends StatelessWidget {
+class _HomeContent extends ConsumerWidget {
   const _HomeContent();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
