@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:table_calendar/table_calendar.dart';
 import 'package:nexora_final/services/announcement_service.dart';
 import 'package:nexora_final/services/instagram_service.dart';
+import 'package:nexora_final/services/event_service.dart';
 import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/screens/calendar_screen.dart';
 import 'package:nexora_final/screens/events_screen.dart';
@@ -13,8 +15,9 @@ import 'package:nexora_final/screens/activities_screen.dart';
 import 'package:nexora_final/screens/news_screen.dart';
 import 'package:nexora_final/screens/resources_screen.dart';
 import 'package:nexora_final/screens/chat_screen.dart';
-import 'package:nexora_final/screens/ai_chat_screen.dart';
+import 'package:nexora_final/screens/nex_screen.dart';
 import 'package:nexora_final/widgets/app_drawer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   static const routeName = '/home';
@@ -29,7 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final List<Widget> _pages = const [
     _HomeContent(),
-    CalendarScreen(),
+    NexScreen(),
     EventsScreen(),
     ActivitiesScreen(),
     ResourcesScreen(),
@@ -58,7 +61,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onTap: (i) => setState(() => _index = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Calendar'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'Nex'),
           BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Events'),
           BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism), label: 'Activities'),
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Resources'),
@@ -156,44 +159,82 @@ class _HomeContent extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // Quick Links Section
-          const Text('Quick Links', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          // Calendar Section
+          const Text('Calendar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.5,
-            children: [
-              _buildQuickLinkCard(context, 'Calendar', Icons.calendar_month, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
-              _buildQuickLinkCard(context, 'Events', Icons.event, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventsScreen()))),
-              _buildQuickLinkCard(context, 'Volunteering', Icons.volunteer_activism, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivitiesScreen()))),
-              _buildQuickLinkCard(context, 'Resources', Icons.folder, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResourcesScreen()))),
-              _buildQuickLinkCard(context, 'Messages', Icons.chat, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen()))),
-              _buildQuickLinkCard(context, 'AI Assistant', Icons.smart_toy, () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AIChatScreen()))),
-            ],
-          ),
+          _buildCalendar(),
         ],
       ),
     );
   }
 
-  Widget _buildQuickLinkCard(BuildContext context, String title, IconData icon, VoidCallback onTap) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
+  Widget _buildCalendar() {
+    return FutureBuilder<List<dynamic>>(
+      future: () async {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('nexora_token');
+        return EventService.fetchEvents(token: token);
+      }(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final events = snapshot.data ?? [];
+        Map<DateTime, List<dynamic>> eventsMap = {};
+        
+        for (final e in events) {
+          try {
+            final d = DateTime.parse(e['date']);
+            final key = DateTime(d.year, d.month, d.day);
+            eventsMap.putIfAbsent(key, () => []).add(e);
+          } catch (e) {
+            continue;
+          }
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                TableCalendar(
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: DateTime.now(),
+                  selectedDayPredicate: (d) => isSameDay(DateTime.now(), d),
+                  eventLoader: (day) => eventsMap[DateTime(day.year, day.month, day.day)] ?? [],
+                  calendarStyle: const CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                if (eventsMap.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text('Upcoming Events', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...eventsMap.entries.take(3).map((entry) {
+                    final date = entry.key;
+                    final dayEvents = entry.value;
+                    return Column(
+                      children: dayEvents.map((e) => ListTile(
+                        dense: true,
+                        leading: Icon(Icons.event, size: 20, color: Theme.of(context).colorScheme.primary),
+                        title: Text(e['title'] ?? '', style: const TextStyle(fontSize: 14)),
+                        subtitle: Text('${date.month}/${date.day}/${date.year}', style: const TextStyle(fontSize: 12)),
+                      )).toList(),
+                    );
+                  }).toList(),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -285,36 +326,44 @@ class _HomeContent extends ConsumerWidget {
               final post = posts[index];
               return Card(
                 margin: const EdgeInsets.only(right: 12),
-                child: Container(
-                  width: 160,
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          post.mediaUrl,
-                          height: 120,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
+                child: InkWell(
+                  onTap: () async {
+                    final url = Uri.parse(post.permalink ?? 'https://www.instagram.com/fbla_national/');
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    width: 160,
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            post.mediaUrl,
                             height: 120,
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.image),
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: 120,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: Text(
-                          post.caption,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Text(
+                            post.caption,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
