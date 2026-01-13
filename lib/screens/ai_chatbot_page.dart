@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'gemini_service.dart';
+import '../services/gemini_service.dart';
 
 class AIChatbotPage extends StatefulWidget {
   static const routeName = '/ai-chatbot';
@@ -21,7 +21,7 @@ class _AIChatbotPageState extends State<AIChatbotPage> {
   bool _loading = false;
 
   // Initialize your GeminiService with your API key
-  final _geminiService = GeminiService(apiKey: 'YOUR_API_KEY_HERE');
+  final _geminiService = GeminiService(apiKey: 'AIzaSyCrbXWCOuH6mrgTmjstOHBHGzkaCqhfrTE');
 
   void _sendMessage() async {
     final text = _messageCtrl.text.trim();

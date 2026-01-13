@@ -170,7 +170,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                         Column(
                           children: [
                             Text(
-                              '${_totalHours.toStringAsFixed(1)}',
+                              _totalHours.toStringAsFixed(1),
                               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
                             ),
                             const Text('Total Hours'),
