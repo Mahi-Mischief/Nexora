@@ -67,10 +67,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Resources'),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen())),
-        child: const Icon(Icons.chat_bubble_outline),
-      ),
     );
   }
 }
@@ -169,6 +165,23 @@ class _HomeContent extends ConsumerWidget {
   }
 
   Widget _buildCalendar() {
+    return _CalendarWidget();
+  }
+}
+
+class _CalendarWidget extends StatefulWidget {
+  const _CalendarWidget();
+
+  @override
+  State<_CalendarWidget> createState() => _CalendarWidgetState();
+}
+
+class _CalendarWidgetState extends State<_CalendarWidget> {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: () async {
         final prefs = await SharedPreferences.getInstance();
@@ -201,12 +214,27 @@ class _HomeContent extends ConsumerWidget {
                 TableCalendar(
                   firstDay: DateTime.utc(2020, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: DateTime.now(),
-                  selectedDayPredicate: (d) => isSameDay(DateTime.now(), d),
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: (d) => _selectedDay != null && isSameDay(_selectedDay!, d),
                   eventLoader: (day) => eventsMap[DateTime(day.year, day.month, day.day)] ?? [],
-                  calendarStyle: const CalendarStyle(
+                  onDaySelected: (selectedDay, focusedDay) {
+                    setState(() {
+                      _selectedDay = selectedDay;
+                      _focusedDay = focusedDay;
+                    });
+                    
+                    final dayEvents = eventsMap[DateTime(selectedDay.year, selectedDay.month, selectedDay.day)];
+                    if (dayEvents != null && dayEvents.isNotEmpty) {
+                      _showEventDetails(context, selectedDay, dayEvents);
+                    }
+                  },
+                  calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: Colors.blue.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    selectedDecoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -226,6 +254,7 @@ class _HomeContent extends ConsumerWidget {
                         leading: Icon(Icons.event, size: 20, color: Theme.of(context).colorScheme.primary),
                         title: Text(e['title'] ?? '', style: const TextStyle(fontSize: 14)),
                         subtitle: Text('${date.month}/${date.day}/${date.year}', style: const TextStyle(fontSize: 12)),
+                        onTap: () => _showEventDetails(context, date, [e]),
                       )).toList(),
                     );
                   }).toList(),
@@ -238,6 +267,77 @@ class _HomeContent extends ConsumerWidget {
     );
   }
 
+  void _showEventDetails(BuildContext context, DateTime date, List<dynamic> events) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${date.month}/${date.day}/${date.year}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: events.map((event) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.event, color: Theme.of(context).colorScheme.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              event['title'] ?? 'Event',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (event['description'] != null && event['description'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          event['description'],
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ],
+                      if (event['location'] != null && event['location'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                event['location'],
+                                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Extension methods moved back to _HomeContent
+extension _HomeContentExtensions on _HomeContent {
   Widget _buildAnnouncementsList() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _loadAnnouncements(),
