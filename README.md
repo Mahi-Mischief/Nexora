@@ -113,6 +113,3 @@ open index.html
 * Multi-device real-time sync
 * Advanced analytics and reporting
 * Integrations with calendar and third-party productivity apps
-rganizer” features — perfect for Autonomous or other AI-focused internships.
-
-Do you want me to do that?
