@@ -12,6 +12,7 @@ import 'package:nexora_final/screens/news_screen.dart';
 import 'package:nexora_final/screens/resources_screen.dart';
 import 'package:nexora_final/screens/chat_screen.dart';
 import 'package:nexora_final/screens/ai_chat_screen.dart';
+import 'package:nexora_final/screens/ai_chatbot_page.dart';
 import 'package:nexora_final/widgets/app_drawer.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -154,13 +155,13 @@ class _HomeContent extends ConsumerWidget {
             children: [
               Expanded(child: ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())), child: const Text('Open Calendar'))),
               const SizedBox(width: 8),
-              Expanded(child: ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen())), child: const Text('Messages'))),
+              Expanded(child: ElevatedButton(onPressed: () => Navigator.of(context).pushNamed(AIChatbotPage.routeName), child: const Text('Messages'))),
             ],
           ),
           const SizedBox(height: 20),
           const Text('AI Assistant', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ElevatedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AIChatScreen())), child: const Text('Ask NEXORA'))
+          ElevatedButton(onPressed: () => Navigator.of(context).pushNamed(AIChatbotPage.routeName), child: const Text('Ask NEXORA'))
         ],
       ),
     );
