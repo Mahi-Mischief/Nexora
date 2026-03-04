@@ -70,7 +70,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('NEXORA Assistant')),
+      appBar: AppBar(title: const Text('Nex')),
       body: Column(
         children: [
           Expanded(
