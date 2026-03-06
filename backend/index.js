@@ -12,6 +12,7 @@ const messagesRoutes = require('./routes/messages');
 const approvalsRoutes = require('./routes/approvals');
 const socialRoutes = require('./routes/social');
 const teamsRoutes = require('./routes/teams');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/approvals', approvalsRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/teams', teamsRoutes);
+app.use('/ai', aiRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
