@@ -27,13 +27,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final s = prefs.getString('nexora_user');
-    final token = prefs.getString('nexora_token');
+    String? token = prefs.getString('nexora_token');
     // Load any cached user first so UI isn't blocked by network checks
     if (s != null) {
       try {
         final j = jsonDecode(s) as Map<String, dynamic>;
         state = state.copyWith(user: NexoraUser.fromJson(j));
       } catch (_) {}
+    }
+
+    token = await AuthService.getFreshFirebaseToken() ?? token;
+    if (token != null) {
+      await prefs.setString('nexora_token', token);
     }
 
     // If token exists, validate it in background (fire-and-forget) but don't block init
@@ -74,9 +79,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     state = AuthState();
+    await AuthService.logoutFirebase();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('nexora_user');
     await prefs.remove('nexora_token');
+  }
+
+  Future<bool> loginWithGoogle() async {
+    final res = await AuthService.loginWithGoogle();
+    if (res != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nexora_token', res['token']);
+      await prefs.setString('nexora_user', jsonEncode(res['user']));
+      state = state.copyWith(user: NexoraUser.fromJson(res['user']));
+      return true;
+    }
+    return false;
   }
 
   Future<void> updateUser(NexoraUser user) async {

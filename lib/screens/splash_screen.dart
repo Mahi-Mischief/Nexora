@@ -30,7 +30,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _checkAuthAndNavigate() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('nexora_token');
+      final token = await AuthService.getFreshFirebaseToken() ?? prefs.getString('nexora_token');
+      if (token != null) {
+        await prefs.setString('nexora_token', token);
+      }
       // If Firebase is not configured (web), show login so user can see instructions.
       if (!FirebaseFlag.configured) {
         Future.delayed(const Duration(milliseconds: 400), () {

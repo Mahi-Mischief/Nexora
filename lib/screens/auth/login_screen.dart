@@ -1,13 +1,9 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:convert';
 
 import 'package:nexora_final/providers/auth_provider.dart';
 import 'package:nexora_final/services/auth_service.dart';
-import 'package:nexora_final/services/api.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:nexora_final/models/user.dart';
 import 'package:nexora_final/screens/auth/signup_screen.dart';
 import 'package:nexora_final/screens/home_screen.dart';
 import 'package:nexora_final/screens/profile_info_screen.dart';
@@ -107,7 +103,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
                                 }
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(AuthService.lastAuthError ?? 'Invalid credentials')),
+                                );
                               }
                             }
                           },
@@ -134,32 +132,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: () async {
                 setState(() => _loading = true);
                 try {
-                  final idToken = await AuthService.signInWithGoogle();
-                  if (idToken == null) {
+                  final ok = await ref.read(authProvider.notifier).loginWithGoogle();
+                  if (!ok) {
                     if (!mounted) return;
                     setState(() => _loading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Google sign-in was cancelled')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(AuthService.lastAuthError ?? 'Google sign-in failed')),
+                    );
                     return;
                   }
-                  final resp = await Api.post('/api/auth/google', body: {'idToken': idToken});
                   if (!mounted) return;
-                  if (resp.statusCode == 200) {
-                    final j = jsonDecode(resp.body) as Map<String, dynamic>;
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setString('nexora_token', j['token']);
-                    await prefs.setString('nexora_user', jsonEncode(j['user']));
-                    final user = NexoraUser.fromJson(j['user']);
-                    await ref.read(authProvider.notifier).updateUser(user);
-                    if (!mounted) return;
-                    if (user.firstName == null) {
-                      Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
-                    } else {
-                      Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
-                    }
+                  setState(() => _loading = false);
+                  final user = ref.read(authProvider).user;
+                  if (user != null && user.firstName == null) {
+                    Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
                   } else {
-                    setState(() => _loading = false);
-                    final errorMsg = jsonDecode(resp.body)['error'] ?? 'Google sign-in failed';
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+                    Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
                   }
                 } catch (e) {
                   if (!mounted) return;
@@ -167,28 +155,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
-            ),
-            const SizedBox(height: 16),
-            // Temporary testing button
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-              ),
-              onPressed: () async {
-                // Create dummy user for testing
-                final dummyUser = NexoraUser(
-                  id: 999,
-                  username: 'testuser',
-                  email: 'test@example.com',
-                  firstName: 'Test',
-                  lastName: 'User',
-                  role: 'student',
-                );
-                await ref.read(authProvider.notifier).updateUser(dummyUser);
-                if (!mounted) return;
-                Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
-              },
-              child: const Text('Skip Login (Testing)'),
             ),
             const SizedBox(height: 32),
             Row(

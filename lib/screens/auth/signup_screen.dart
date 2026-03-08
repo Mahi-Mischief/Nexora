@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nexora_final/providers/auth_provider.dart';
+import 'package:nexora_final/services/auth_service.dart';
 import 'package:nexora_final/screens/profile_info_screen.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -153,7 +154,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Could not create account. User may already exist.')),
+                                SnackBar(content: Text(AuthService.lastAuthError ?? 'Could not create account.')),
                               );
                             }
                           } catch (e) {

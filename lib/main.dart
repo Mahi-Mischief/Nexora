@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:nexora_final/services/firebase_flag.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,17 +18,20 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     try {
-      // Firebase web configuration from Firebase Console
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: 'AIzaSyCkaov-F4g9x_Mg9THqiSYnUeqUlhpixA4',
-          appId: '1:174980226928:web:8936c90c1056fb2fc579b5',
-          messagingSenderId: '174980226928',
-          projectId: 'nexora-8c5e6',
-          authDomain: 'nexora-8c5e6.firebaseapp.com',
-          storageBucket: 'nexora-8c5e6.firebasestorage.app',
-        ),
-      );
+      if (kIsWeb) {
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: 'AIzaSyDXzeTrbu2UcFEvc2G86Xrp9zdlSo6zrls',
+            appId: '1:565966227734:web:1a9b804b583e475c0d6837',
+            messagingSenderId: '565966227734',
+            projectId: 'nexora-ee541',
+            authDomain: 'nexora-ee541.firebaseapp.com',
+            storageBucket: 'nexora-ee541.firebasestorage.app',
+          ),
+        );
+      } else {
+        await Firebase.initializeApp();
+      }
       FirebaseFlag.setConfigured(true);
     } catch (e) {
       // Firebase not configured for web — mark flag and continue so app doesn't crash.

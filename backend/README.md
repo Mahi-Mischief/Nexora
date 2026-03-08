@@ -4,6 +4,10 @@ Quick start (local PostgreSQL required):
 
 1. Copy `.env.example` to `.env` and set `DATABASE_URL` and `JWT_SECRET`.
 
+	If you want Google/Firebase login to work, also set one of:
+	- `FIREBASE_SERVICE_ACCOUNT=absolute_path_to_service_account.json`
+	- `FIREBASE_SERVICE_ACCOUNT_JSON={...full service account JSON...}`
+
 2. Install dependencies:
 
 ```bash
@@ -25,9 +29,11 @@ npm start
 
 API endpoints (examples):
 
-- `POST /api/auth/signup` { username, email, password }
-- `POST /api/auth/login` { usernameOrEmail, password }
+- `POST /api/auth/signup` (deprecated; Firebase auth is used on client)
+- `POST /api/auth/login` (deprecated; Firebase auth is used on client)
+- `POST /api/auth/sync` (Bearer Firebase ID token, optional `{ username, role }`)
 - `GET /api/auth/me` (Bearer token)
+- `POST /api/auth/google` { idToken } (requires Firebase Admin credentials above)
 - `GET /api/events`
 - `GET /api/announcements`
 - `POST /api/messages` (Bearer token)

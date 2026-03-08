@@ -1,9 +1,10 @@
 -- SQL schema for NEXORA
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
+  firebase_uid VARCHAR(128) UNIQUE,
   username VARCHAR(64) UNIQUE NOT NULL,
   email VARCHAR(128) UNIQUE NOT NULL,
-  password_hash VARCHAR(256) NOT NULL,
+  password_hash VARCHAR(256),
   role VARCHAR(32) DEFAULT 'student',
   first_name VARCHAR(64),
   last_name VARCHAR(64),
