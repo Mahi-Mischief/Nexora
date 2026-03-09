@@ -17,6 +17,7 @@ async function authMiddleware(req, res, next) {
       const user = await ensureLocalUserFromFirebase(decoded);
       req.user = { id: user.id, username: user.username, role: user.role, firebase_uid: decoded.uid };
       req.userId = user.id;
+      req.userRole = user.role;
       req.firebase = decoded;
       return next();
     } catch (_) {
@@ -29,6 +30,7 @@ async function authMiddleware(req, res, next) {
     const payload = jwt.verify(token, secret);
     req.user = payload; // { id, username, role }
     req.userId = payload.id;
+    req.userRole = payload.role;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });

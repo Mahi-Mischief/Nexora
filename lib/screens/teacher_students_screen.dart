@@ -36,16 +36,19 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading students: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading students: $e')));
       }
     }
   }
 
   Future<void> _viewStudentActivities(dynamic student) async {
     try {
-      final activities = await TeacherService.getStudentActivities(_token!, student['id']);
+      final activities = await TeacherService.getStudentActivities(
+        _token!,
+        student['id'],
+      );
       if (!mounted) return;
 
       Navigator.of(context).push(
@@ -58,18 +61,16 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading activities: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading activities: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Student Dashboard'),
-      ),
+      appBar: AppBar(title: const Text('Students')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -81,20 +82,30 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                       itemCount: _students.length,
                       itemBuilder: (context, index) {
                         final student = _students[index];
-                        final totalHours = double.tryParse(student['total_hours'].toString()) ?? 0.0;
+                        final totalHours =
+                            double.tryParse(
+                              student['total_hours'].toString(),
+                            ) ??
+                            0.0;
                         final activityCount = student['activity_count'] ?? 0;
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ListTile(
-                            leading: CircleAvatar(
-                              child: Text(student['first_name']?[0] ?? student['username'][0]),
+                            leading: const CircleAvatar(
+                              backgroundImage: AssetImage(
+                                'assets/user_icon.jpg',
+                              ),
                             ),
                             title: Text(
-                              '${student['first_name'] ?? ''} ${student['last_name'] ?? ''}'.trim().isEmpty
+                              '${student['first_name'] ?? ''} ${student['last_name'] ?? ''}'
+                                      .trim()
+                                      .isEmpty
                                   ? student['username']
                                   : '${student['first_name']} ${student['last_name']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,7 +121,10 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                 ),
                               ],
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                            ),
                             onTap: () => _viewStudentActivities(student),
                           ),
                         );
@@ -134,10 +148,12 @@ class StudentActivitiesDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<StudentActivitiesDetailScreen> createState() => _StudentActivitiesDetailScreenState();
+  State<StudentActivitiesDetailScreen> createState() =>
+      _StudentActivitiesDetailScreenState();
 }
 
-class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailScreen> {
+class _StudentActivitiesDetailScreenState
+    extends State<StudentActivitiesDetailScreen> {
   late List<dynamic> _activities;
 
   @override
@@ -166,9 +182,18 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
                   value: activityType,
                   decoration: const InputDecoration(labelText: 'Activity Type'),
                   items: const [
-                    DropdownMenuItem(value: 'volunteering', child: Text('Volunteering')),
-                    DropdownMenuItem(value: 'fbla_event', child: Text('FBLA Event')),
-                    DropdownMenuItem(value: 'community_service', child: Text('Community Service')),
+                    DropdownMenuItem(
+                      value: 'volunteering',
+                      child: Text('Volunteering'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'fbla_event',
+                      child: Text('FBLA Event'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'community_service',
+                      child: Text('Community Service'),
+                    ),
                     DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
                   onChanged: (val) => setDialogState(() => activityType = val!),
@@ -231,9 +256,13 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
             ),
             ElevatedButton(
               onPressed: () async {
-                if (titleCtrl.text.isEmpty || hoursCtrl.text.isEmpty || dateCtrl.text.isEmpty) {
+                if (titleCtrl.text.isEmpty ||
+                    hoursCtrl.text.isEmpty ||
+                    dateCtrl.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill required fields')),
+                    const SnackBar(
+                      content: Text('Please fill required fields'),
+                    ),
                   );
                   return;
                 }
@@ -264,7 +293,10 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
 
     if (result == true) {
       // Reload activities
-      final updatedActivities = await TeacherService.getStudentActivities(widget.token, widget.student['id']);
+      final updatedActivities = await TeacherService.getStudentActivities(
+        widget.token,
+        widget.student['id'],
+      );
       setState(() => _activities = updatedActivities);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -276,13 +308,17 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
 
   Future<void> _downloadPdf() async {
     try {
-      final pdfUrl = await TeacherService.getStudentPdfUrl(widget.student['id']);
+      final pdfUrl = await TeacherService.getStudentPdfUrl(
+        widget.student['id'],
+      );
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('nexora_token');
-      
+
       // For web, we'll open in a new tab with the token as a query param
-      final urlWithToken = Uri.parse(pdfUrl).replace(queryParameters: {'token': 'Bearer $token'});
-      
+      final urlWithToken = Uri.parse(
+        pdfUrl,
+      ).replace(queryParameters: {'token': 'Bearer $token'});
+
       if (await canLaunchUrl(urlWithToken)) {
         await launchUrl(urlWithToken, mode: LaunchMode.externalApplication);
       } else {
@@ -294,15 +330,17 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final totalHours = _activities.fold<double>(
       0.0,
       (sum, a) => sum + (double.tryParse(a['hours'].toString()) ?? 0.0),
@@ -310,7 +348,9 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.student['first_name'] ?? widget.student['username']}\'s Activities'),
+        title: Text(
+          '${widget.student['first_name'] ?? widget.student['username']}\'s Activities',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
@@ -323,71 +363,142 @@ class _StudentActivitiesDetailScreenState extends State<StudentActivitiesDetailS
         onPressed: _addActivity,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Column(
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Activities', style: TextStyle(fontSize: 12)),
                     Text(
-                      '${_activities.length}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      '${widget.student['first_name'] ?? ''} ${widget.student['last_name'] ?? ''}'
+                              .trim()
+                              .isEmpty
+                          ? widget.student['username']
+                          : '${widget.student['first_name']} ${widget.student['last_name']}',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Chip(label: Text('Username: ${widget.student['username']}')),
+                        Chip(label: Text('Grade: ${widget.student['grade'] ?? 'N/A'}')),
+                        Chip(label: Text('School: ${widget.student['school'] ?? 'N/A'}')),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Email: ${widget.student['email'] ?? 'N/A'}',
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
-                Column(
-                  children: [
-                    const Text('Total Hours', style: TextStyle(fontSize: 12)),
-                    Text(
-                      totalHours.toStringAsFixed(1),
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _activities.isEmpty
-                ? const Center(child: Text('No activities logged yet'))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _activities.length,
-                    itemBuilder: (context, index) {
-                      final activity = _activities[index];
-                      final date = DateTime.parse(activity['date']);
-                      final hours = double.tryParse(activity['hours'].toString()) ?? 0.0;
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text('${hours.toStringAsFixed(1)}h'),
-                          ),
-                          title: Text(
-                            activity['title'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Type: ${activity['activity_type']}'),
-                              Text('Date: ${date.toLocal().toString().split(' ')[0]}'),
-                              if (activity['description'] != null && activity['description'].toString().isNotEmpty)
-                                Text(activity['description'], style: const TextStyle(fontSize: 12)),
-                            ],
+            const SizedBox(height: 10),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        Text(
+                          'Total Activities',
+                          style: theme.textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_activities.length}',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
                           ),
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Text('Total Hours', style: theme.textTheme.labelMedium),
+                        const SizedBox(height: 4),
+                        Text(
+                          totalHours.toStringAsFixed(1),
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _activities.isEmpty
+                  ? const Center(child: Text('No activities logged yet'))
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: _activities.length,
+                      itemBuilder: (context, index) {
+                        final activity = _activities[index];
+                        final date = DateTime.parse(activity['date']);
+                        final hours =
+                            double.tryParse(activity['hours'].toString()) ?? 0.0;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: colors.secondaryContainer,
+                              child: Text(
+                                '${hours.toStringAsFixed(1)}h',
+                                style: TextStyle(
+                                  color: colors.onSecondaryContainer,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              activity['title'],
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text('Type: ${activity['activity_type']}'),
+                                Text(
+                                  'Date: ${date.toLocal().toString().split(' ')[0]}',
+                                ),
+                                if (activity['description'] != null &&
+                                    activity['description'].toString().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      activity['description'],
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

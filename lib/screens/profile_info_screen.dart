@@ -68,6 +68,8 @@ class _ProfileInfoScreenState extends ConsumerState<ProfileInfoScreen> {
                 onPressed: () async {
                   final current = ref.read(authProvider).user;
                   if (current != null) {
+                    final navigator = Navigator.of(context);
+                    final messenger = ScaffoldMessenger.of(context);
                     final updated = NexoraUser(
                       id: current.id,
                       username: current.username,
@@ -80,10 +82,20 @@ class _ProfileInfoScreenState extends ConsumerState<ProfileInfoScreen> {
                       address: _address.text.isEmpty ? null : _address.text,
                       role: current.role,
                     );
-                    await ref.read(authProvider.notifier).updateUser(updated);
-                    if (!mounted) return;
-                    // ignore: use_build_context_synchronously
-                    Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+                    try {
+                      await ref.read(authProvider.notifier).updateUser(updated);
+                      if (!mounted) return;
+                      navigator.pushReplacementNamed(HomeScreen.routeName);
+                    } catch (e) {
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceFirst('Exception: ', ''),
+                          ),
+                        ),
+                      );
+                    }
                   }
                 },
                 child: const Text('Save & Continue'),

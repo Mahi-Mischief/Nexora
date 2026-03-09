@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexora_final/services/teacher_service.dart';
 import 'package:nexora_final/services/event_service.dart';
+import 'package:nexora_final/screens/teacher_calendar_screen.dart';
 
 class TeacherEventsScreen extends StatefulWidget {
   const TeacherEventsScreen({super.key});
@@ -41,9 +42,9 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
     } catch (e) {
       setState(() => _loadingTeams = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading teams: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading teams: $e')));
       }
     }
   }
@@ -51,7 +52,10 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
   Future<void> _loadVolunteeringEvents() async {
     setState(() => _loadingEvents = true);
     try {
-      final events = await EventService.fetchEvents(token: _token, eventType: 'volunteering');
+      final events = await EventService.fetchEvents(
+        token: _token,
+        eventType: 'volunteering',
+      );
       setState(() {
         _volunteeringEvents = events;
         _loadingEvents = false;
@@ -107,7 +111,9 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
                 const SizedBox(height: 12),
                 ListTile(
                   title: const Text('Date'),
-                  subtitle: Text(selectedDate.toLocal().toString().split(' ')[0]),
+                  subtitle: Text(
+                    selectedDate.toLocal().toString().split(' ')[0],
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -167,10 +173,19 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
                   'location': locationCtrl.text,
                   'event_type': 'volunteering',
                 };
-
-                final success = await TeacherService.createEvent(_token!, event);
-                if (!context.mounted) return;
-                Navigator.pop(context, success);
+                try {
+                  final success = await TeacherService.createEvent(
+                    _token!,
+                    event,
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pop(context, success);
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
               },
               child: const Text('Create'),
             ),
@@ -194,7 +209,9 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Opportunity'),
-        content: const Text('Are you sure you want to delete this volunteering opportunity?'),
+        content: const Text(
+          'Are you sure you want to delete this volunteering opportunity?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -214,26 +231,85 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
         await TeacherService.deleteEvent(_token!, eventId);
         _loadVolunteeringEvents();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Opportunity deleted')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Opportunity deleted')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
+    }
+  }
+
+  Future<void> _showTeamTasks(dynamic team) async {
+    try {
+      final tasks = await TeacherService.getTeamTasks(
+        _token!,
+        team['id'] as int,
+      );
+      if (!mounted) return;
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => SizedBox(
+          height: MediaQuery.of(context).size.height * 0.75,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${team['name']} To-Do List',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: tasks.isEmpty
+                      ? const Center(child: Text('No tasks added yet'))
+                      : ListView.builder(
+                          itemCount: tasks.length,
+                          itemBuilder: (context, index) {
+                            final task = tasks[index];
+                            return ListTile(
+                              leading: Icon(
+                                task.isCompleted
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
+                                color: task.isCompleted
+                                    ? Colors.green
+                                    : Colors.grey,
+                              ),
+                              title: Text(task.title),
+                              subtitle: Text('By ${task.createdBy}'),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not load team tasks: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Events Management'),
-      ),
+      appBar: AppBar(title: const Text('Event Management')),
       backgroundColor: const Color(0xFF0E1A2B),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -258,78 +334,106 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
             _loadingTeams
                 ? const Center(child: CircularProgressIndicator())
                 : _teams.isEmpty
-                    ? const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Row(
+                ? const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.grey),
+                          SizedBox(width: 12),
+                          Expanded(child: Text('No teams registered yet')),
+                        ],
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: _teams.map((team) {
+                      final isApproved = team['approval_status'] == 'approved';
+                      final isPending = team['approval_status'] == 'pending';
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.group,
+                            color: isApproved
+                                ? Colors.green[400]
+                                : isPending
+                                ? Colors.orange[400]
+                                : Colors.red[400],
+                            size: 32,
+                          ),
+                          title: Text(
+                            team['name'],
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, color: Colors.grey),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text('No teams registered yet'),
+                              Text(
+                                'Event: ${team['event_type']} - ${team['event_name']}',
+                              ),
+                              Text('School: ${team['school']}'),
+                              Text('Members: ${team['member_count']}'),
+                              Text(
+                                'Status: ${team['approval_status']}',
+                                style: TextStyle(
+                                  color: isApproved
+                                      ? Colors.green
+                                      : isPending
+                                      ? Colors.orange
+                                      : Colors.red,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              TextButton.icon(
+                                onPressed: () => _showTeamTasks(team),
+                                icon: const Icon(Icons.checklist, size: 16),
+                                label: const Text('View Team To-Do List'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 0),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
                               ),
                             ],
                           ),
+                          isThreeLine: true,
                         ),
-                      )
-                    : Column(
-                        children: _teams.map((team) {
-                          final isApproved = team['approval_status'] == 'approved';
-                          final isPending = team['approval_status'] == 'pending';
-                          
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: Icon(
-                                Icons.group,
-                                color: isApproved
-                                    ? Colors.green[400]
-                                    : isPending
-                                        ? Colors.orange[400]
-                                        : Colors.red[400],
-                                size: 32,
-                              ),
-                              title: Text(
-                                team['name'],
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Event: ${team['event_type']} - ${team['event_name']}'),
-                                  Text('School: ${team['school']}'),
-                                  Text('Members: ${team['member_count']}'),
-                                  Text(
-                                    'Status: ${team['approval_status']}',
-                                    style: TextStyle(
-                                      color: isApproved ? Colors.green : isPending ? Colors.orange : Colors.red,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              isThreeLine: true,
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                      );
+                    }).toList(),
+                  ),
             const SizedBox(height: 32),
             const Divider(thickness: 2),
             const SizedBox(height: 24),
 
             // Volunteering Opportunities Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Volunteering Opportunities',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                Row(
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.refresh),
                       onPressed: _loadVolunteeringEvents,
+                    ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.calendar_month),
+                      label: const Text('Calendar'),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TeacherCalendarScreen(),
+                        ),
+                      ),
                     ),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add),
@@ -348,69 +452,88 @@ class _TeacherEventsScreenState extends State<TeacherEventsScreen> {
             _loadingEvents
                 ? const Center(child: CircularProgressIndicator())
                 : _volunteeringEvents.isEmpty
-                    ? const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.grey),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text('No volunteering opportunities posted yet'),
-                              ),
-                            ],
+                ? const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.grey),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'No volunteering opportunities posted yet',
+                            ),
                           ),
-                        ),
-                      )
-                    : Column(
-                        children: _volunteeringEvents.map((event) {
-                          final date = DateTime.parse(event['date']);
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: Icon(
-                                Icons.volunteer_activism,
-                                color: Colors.green[400],
-                                size: 32,
-                              ),
-                              title: Text(
-                                event['title'],
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: _volunteeringEvents.map((event) {
+                      final date = DateTime.parse(event['date']);
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.volunteer_activism,
+                            color: Colors.green[400],
+                            size: 32,
+                          ),
+                          title: Text(
+                            event['title'],
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (event['description'] != null &&
+                                  event['description'].isNotEmpty)
+                                Text(
+                                  event['description'],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              const SizedBox(height: 4),
+                              Row(
                                 children: [
-                                  if (event['description'] != null && event['description'].isNotEmpty)
-                                    Text(event['description']),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.calendar_today, size: 14),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${date.toLocal().toString().split(' ')[0]} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
-                                      ),
-                                    ],
-                                  ),
-                                  if (event['location'] != null && event['location'].isNotEmpty)
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.location_on, size: 14),
-                                        const SizedBox(width: 4),
-                                        Text(event['location']),
-                                      ],
+                                  const Icon(Icons.calendar_today, size: 14),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      '${date.toLocal().toString().split(' ')[0]} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                                      overflow: TextOverflow.ellipsis,
                                     ),
+                                  ),
                                 ],
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _deleteVolunteeringEvent(event['id']),
-                              ),
-                              isThreeLine: true,
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                              if (event['location'] != null &&
+                                  event['location'].isNotEmpty)
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on, size: 14),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        event['location'],
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () =>
+                                _deleteVolunteeringEvent(event['id']),
+                          ),
+                          isThreeLine: true,
+                        ),
+                      );
+                    }).toList(),
+                  ),
           ],
         ),
       ),

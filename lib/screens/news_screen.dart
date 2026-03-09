@@ -17,6 +17,13 @@ class NewsScreen extends StatelessWidget {
         }(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) {
+            final msg = snapshot.error.toString().replaceFirst('Exception: ', '');
+            return Center(child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(msg),
+            ));
+          }
           final items = snapshot.data ?? [];
           return ListView(
             padding: const EdgeInsets.all(12),

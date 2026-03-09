@@ -7,19 +7,28 @@
         {
             "name": "nexora_final",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define=API_BASE_URL=http://localhost:3000"
+            ]
         },
         {
             "name": "nexora_final (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "toolArgs": [
+                "--dart-define=API_BASE_URL=http://localhost:3000"
+            ]
         },
         {
             "name": "nexora_final (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "toolArgs": [
+                "--dart-define=API_BASE_URL=http://localhost:3000"
+            ]
         }
     ]
 }

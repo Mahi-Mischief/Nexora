@@ -7,12 +7,26 @@ const router = express.Router();
 // Middleware to verify token
 router.use(verifyToken);
 
+let teamSchemaReady = false;
+
+async function ensureTeamSchema() {
+  if (teamSchemaReady) return;
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) DEFAULT \'pending\'');
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approved_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP');
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) DEFAULT \'pending\'');
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approved_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP');
+  teamSchemaReady = true;
+}
+
 /**
  * GET /api/teams/school?school=value
  * Fetch all teams in a given school
  */
 router.get('/school', async (req, res) => {
   try {
+    await ensureTeamSchema();
     const { school } = req.query;
     if (!school) {
       return res.status(400).json({ error: 'School is required' });
@@ -52,6 +66,7 @@ router.get('/school', async (req, res) => {
  */
 router.get('/user/current', async (req, res) => {
   try {
+    await ensureTeamSchema();
     const userId = req.userId;
 
     const result = await db.query(
@@ -91,6 +106,11 @@ router.get('/user/current', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    await ensureTeamSchema();
+    const role = (req.userRole || req.user?.role || '').toLowerCase();
+    if (role !== 'student') {
+      return res.status(403).json({ error: 'Only students can create teams' });
+    }
     const { name, school, event_type, event_name, member_count } = req.body;
     const userId = req.userId;
 
@@ -111,9 +131,9 @@ router.post('/', async (req, res) => {
 
     // Create team
     const createTeamResult = await db.query(
-      `INSERT INTO teams (name, school, event_type, event_name, member_count, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, school, event_type, event_name, member_count, created_by, created_at`,
+      `INSERT INTO teams (name, school, event_type, event_name, member_count, created_by, approval_status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+       RETURNING id, name, school, event_type, event_name, member_count, created_by, approval_status, created_at`,
       [name, school, event_type, event_name, member_count, userId]
     );
 
@@ -121,8 +141,9 @@ router.post('/', async (req, res) => {
 
     // Add creator as team member
     await db.query(
-      'INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)',
-      [team.id, userId]
+      `INSERT INTO team_members (team_id, user_id, approval_status, approved_by, approved_at)
+       VALUES ($1, $2, 'approved', $3, now())`,
+      [team.id, userId, userId]
     );
 
     // Get creator username
@@ -145,6 +166,11 @@ router.post('/', async (req, res) => {
  */
 router.post('/:id/join', async (req, res) => {
   try {
+    await ensureTeamSchema();
+    const role = (req.userRole || req.user?.role || '').toLowerCase();
+    if (role !== 'student') {
+      return res.status(403).json({ error: 'Only students can join teams' });
+    }
     const teamId = parseInt(req.params.id);
     const userId = req.userId;
 
@@ -170,11 +196,12 @@ router.post('/:id/join', async (req, res) => {
 
     // Add user to team
     await db.query(
-      'INSERT INTO team_members (team_id, user_id) VALUES ($1, $2)',
+      `INSERT INTO team_members (team_id, user_id, approval_status)
+       VALUES ($1, $2, 'pending')`,
       [teamId, userId]
     );
 
-    res.json({ success: true, message: 'Successfully joined team' });
+    res.json({ success: true, message: 'Join request submitted for teacher approval' });
   } catch (error) {
     console.error('Error joining team:', error.message);
     res.status(500).json({ error: error.message });

@@ -9,17 +9,20 @@ class TeacherApprovalsScreen extends StatefulWidget {
   State<TeacherApprovalsScreen> createState() => _TeacherApprovalsScreenState();
 }
 
-class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with SingleTickerProviderStateMixin {
+class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<dynamic> _pendingTeams = [];
   List<dynamic> _pendingMembers = [];
+  List<dynamic> _pendingHours = [];
+  List<dynamic> _pendingSignups = [];
   bool _loading = true;
   String? _token;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadApprovals();
   }
 
@@ -36,35 +39,139 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
       _token = prefs.getString('nexora_token');
       if (_token != null) {
         final teams = await TeacherService.getTeams(_token!);
-        
+
         // Filter pending teams
-        final pendingTeams = teams.where((t) => t['approval_status'] == 'pending').toList();
-        
+        final pendingTeams = teams
+            .where((t) => t['approval_status'] == 'pending')
+            .toList();
+
         // Get pending members for all teams
         List<dynamic> allPendingMembers = [];
         for (var team in teams) {
-          final members = await TeacherService.getTeamMembers(_token!, team['id']);
-          final pendingMembers = members.where((m) => m['approval_status'] == 'pending').toList();
+          final members = await TeacherService.getTeamMembers(
+            _token!,
+            team['id'],
+          );
+          final pendingMembers = members
+              .where((m) => m['approval_status'] == 'pending')
+              .toList();
           for (var member in pendingMembers) {
             member['team_name'] = team['name'];
             member['team_id'] = team['id'];
           }
           allPendingMembers.addAll(pendingMembers);
         }
-        
+
+        final pendingHours = await TeacherService.getPendingActivityApprovals(
+          _token!,
+        );
+        final pendingSignups = await TeacherService.getPendingSignupApprovals(
+          _token!,
+        );
+
         setState(() {
           _pendingTeams = pendingTeams;
           _pendingMembers = allPendingMembers;
+          _pendingHours = pendingHours;
+          _pendingSignups = pendingSignups;
           _loading = false;
         });
       }
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading approvals: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading approvals: $e')));
       }
+    }
+  }
+
+  Future<void> _approveHour(dynamic item) async {
+    try {
+      final ok = await TeacherService.approveStudentActivity(
+        _token!,
+        item['student_id'] as int,
+        item['id'] as int,
+      );
+      if (ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Volunteering hours approved')),
+        );
+        _loadApprovals();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _rejectHour(dynamic item) async {
+    try {
+      final ok = await TeacherService.rejectStudentActivity(
+        _token!,
+        item['student_id'] as int,
+        item['id'] as int,
+      );
+      if (ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Volunteering hours rejected')),
+        );
+        _loadApprovals();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _approveSignup(dynamic item) async {
+    try {
+      final ok = await TeacherService.approveEventSignup(
+        _token!,
+        item['event_id'] as int,
+        item['id'] as int,
+      );
+      if (ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Signup approved')));
+        _loadApprovals();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _rejectSignup(dynamic item) async {
+    try {
+      final ok = await TeacherService.rejectEventSignup(
+        _token!,
+        item['event_id'] as int,
+        item['id'] as int,
+      );
+      if (ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Signup rejected')));
+        _loadApprovals();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -78,9 +185,9 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
         _loadApprovals();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -114,26 +221,34 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
           _loadApprovals();
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _approveMember(dynamic member) async {
     try {
-      final success = await TeacherService.approveMember(_token!, member['team_id'], member['id']);
+      final success = await TeacherService.approveMember(
+        _token!,
+        member['team_id'],
+        member['id'],
+      );
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${member['first_name'] ?? member['username']} approved!')),
+          SnackBar(
+            content: Text(
+              '${member['first_name'] ?? member['username']} approved!',
+            ),
+          ),
         );
         _loadApprovals();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -142,7 +257,9 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reject Member'),
-        content: Text('Reject ${member['first_name'] ?? member['username']} from joining ${member['team_name']}?'),
+        content: Text(
+          'Reject ${member['first_name'] ?? member['username']} from joining ${member['team_name']}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -159,24 +276,32 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
 
     if (confirm == true) {
       try {
-        final success = await TeacherService.rejectMember(_token!, member['team_id'], member['id']);
+        final success = await TeacherService.rejectMember(
+          _token!,
+          member['team_id'],
+          member['id'],
+        );
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Member rejected')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Member rejected')));
           _loadApprovals();
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalPending = _pendingTeams.length + _pendingMembers.length;
+    final totalPending =
+        _pendingTeams.length +
+        _pendingMembers.length +
+        _pendingHours.length +
+        _pendingSignups.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -193,7 +318,10 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                 ),
                 child: Text(
                   '$totalPending',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -217,7 +345,10 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                       ),
                       child: Text(
                         '${_pendingTeams.length}',
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -239,7 +370,60 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                       ),
                       child: Text(
                         '${_pendingMembers.length}',
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Hours'),
+                  if (_pendingHours.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${_pendingHours.length}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Signups'),
+                  if (_pendingSignups.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${_pendingSignups.length}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -258,6 +442,8 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                 children: [
                   _buildTeamsTab(),
                   _buildMembersTab(),
+                  _buildHoursTab(),
+                  _buildSignupsTab(),
                 ],
               ),
             ),
@@ -298,7 +484,10 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                     Expanded(
                       child: Text(
                         team['name'],
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -315,14 +504,18 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                     OutlinedButton.icon(
                       icon: const Icon(Icons.close),
                       label: const Text('Reject'),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                       onPressed: () => _rejectTeam(team),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.check),
                       label: const Text('Approve'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
                       onPressed: () => _approveTeam(team),
                     ),
                   ],
@@ -354,7 +547,8 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
       itemCount: _pendingMembers.length,
       itemBuilder: (context, index) {
         final member = _pendingMembers[index];
-        final fullName = '${member['first_name'] ?? ''} ${member['last_name'] ?? ''}'.trim();
+        final fullName =
+            '${member['first_name'] ?? ''} ${member['last_name'] ?? ''}'.trim();
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -365,8 +559,8 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      child: Text(member['first_name']?[0] ?? member['username'][0]),
+                    const CircleAvatar(
+                      backgroundImage: AssetImage('assets/user_icon.jpg'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -375,7 +569,10 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                         children: [
                           Text(
                             fullName.isEmpty ? member['username'] : fullName,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           Text(member['email'] ?? ''),
                         ],
@@ -405,7 +602,10 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                 ),
                 if (member['grade'] != null) ...[
                   const SizedBox(height: 4),
-                  Text('Grade: ${member['grade']}', style: const TextStyle(fontSize: 13)),
+                  Text(
+                    'Grade: ${member['grade']}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ],
                 const SizedBox(height: 12),
                 Row(
@@ -414,17 +614,130 @@ class _TeacherApprovalsScreenState extends State<TeacherApprovalsScreen> with Si
                     OutlinedButton.icon(
                       icon: const Icon(Icons.close),
                       label: const Text('Reject'),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                      ),
                       onPressed: () => _rejectMember(member),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.check),
                       label: const Text('Approve'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
                       onPressed: () => _approveMember(member),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHoursTab() {
+    if (_pendingHours.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+            SizedBox(height: 16),
+            Text(
+              'No pending volunteering hours',
+              style: TextStyle(fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _pendingHours.length,
+      itemBuilder: (context, index) {
+        final item = _pendingHours[index];
+        final name = '${item['first_name'] ?? ''} ${item['last_name'] ?? ''}'
+            .trim();
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            title: Text(item['title']?.toString() ?? 'Activity'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Student: ${name.isEmpty ? item['username'] : name}'),
+                Text(
+                  'Type: ${item['activity_type']} • Hours: ${item['hours']}',
+                ),
+                Text('Date: ${item['date']}'),
+              ],
+            ),
+            trailing: Wrap(
+              spacing: 6,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () => _rejectHour(item),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green),
+                  onPressed: () => _approveHour(item),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSignupsTab() {
+    if (_pendingSignups.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+            SizedBox(height: 16),
+            Text('No pending event signups', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _pendingSignups.length,
+      itemBuilder: (context, index) {
+        final item = _pendingSignups[index];
+        final name = '${item['first_name'] ?? ''} ${item['last_name'] ?? ''}'
+            .trim();
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            title: Text(item['event_title']?.toString() ?? 'Event Signup'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Student: ${name.isEmpty ? item['username'] : name}'),
+                Text('Type: ${item['event_type'] ?? 'general'}'),
+                Text('Date: ${item['event_date']}'),
+              ],
+            ),
+            trailing: Wrap(
+              spacing: 6,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () => _rejectSignup(item),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green),
+                  onPressed: () => _approveSignup(item),
                 ),
               ],
             ),

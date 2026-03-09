@@ -34,11 +34,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
@@ -169,6 +175,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       child: const Text('Continue'),
                     ),
             ],
+            ),
           ),
         ),
       ),

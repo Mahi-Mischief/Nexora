@@ -1,6 +1,6 @@
 {
-    "name": "nexora_final",
-    "short_name": "nexora_final",
+    "name": "Nexora",
+    "short_name": "Nexora",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

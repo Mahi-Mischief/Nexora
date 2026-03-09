@@ -44,6 +44,8 @@ dependencies:
   firebase_core: ^4.3.0
   firebase_auth: ^6.1.3
   google_sign_in: ^5.4.2
+  pdf: ^3.11.1
+  universal_html: ^2.2.4
 
 dev_dependencies:
   flutter_test:
@@ -55,6 +57,14 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/Nexora_logo_no_name.png
+  adaptive_icon_foreground: assets/Nexora_logo_no_name.png
+  adaptive_icon_background: "#0E1A2B"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -70,7 +80,9 @@ flutter:
   assets:
     - assets/logo.svg
     - assets/fbla_logo.png
-    - assets/Nexora_logo.png
+    - assets/Nexora_logo_no_name.png
+    - assets/Nexora_logo_with name.png
+    - assets/user_icon.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

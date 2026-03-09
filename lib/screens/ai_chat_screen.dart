@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:nexora_final/services/api.dart';
 
 class AIChatScreen extends StatefulWidget {
   const AIChatScreen({super.key});
@@ -11,16 +11,9 @@ class AIChatScreen extends StatefulWidget {
 
 class _AIChatScreenState extends State<AIChatScreen> {
   final TextEditingController _ctrl = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   final List<Map<String, String>> _messages = [];
-
-  // 🔑 Replace with your NEW Gemini API key
-  static const String apiKey = "AIzaSyCDcboZEo2ggVhdZbojzSp948f6Jc0XmrU";
-
-//   static const String geminiUrl =
-//       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey";
-      static const String geminiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$apiKey";
 
 
   void _ask() async {
@@ -34,8 +27,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
     });
 
     _ctrl.clear();
-
-    await Future.delayed(const Duration(seconds: 2));
+  _scrollToBottom();
 
     final responseText = await _generateResponse(q);
 
@@ -47,40 +39,35 @@ class _AIChatScreenState extends State<AIChatScreen> {
         }
       }
     });
+
+    _scrollToBottom();
   }
 
   Future<String> _generateResponse(String prompt) async {
     try {
-      final response = await http.post(
-        Uri.parse(geminiUrl),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "contents": [
-            {
-              "parts": [
-                {"text": prompt}
-              ]
-            }
-          ]
-        }),
-      );
+      final response = await Api.post('/ai/generate', body: {"prompt": prompt});
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
-        return data["candidates"][0]["content"]["parts"][0]["text"];
+        return data["text"] ?? "No response from AI.";
       }
 
-      // Handle quota exceeded
-      if (response.statusCode == 429) {
-        await Future.delayed(const Duration(seconds: 10));
-        return "Quota limit reached. Please wait a moment and try again.";
-      }
-
-      return "AI Error ${response.statusCode}";
+      final body = jsonDecode(response.body);
+      return body["error"] ?? "AI Error ${response.statusCode}";
     } catch (e) {
-      return "Error: $e";
+      return "Network error: $e\nBase URL: ${Api.baseUrl}\nIf this is wrong, launch with --dart-define=API_BASE_URL=http://<your-backend-host>:3000";
     }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Widget _chatBubble(Map<String, String> message) {
@@ -96,12 +83,19 @@ class _AIChatScreenState extends State<AIChatScreen> {
           color: isUser ? Colors.blueGrey : Colors.blueAccent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(
+        child: SelectableText(
           message['text'] ?? '',
           style: const TextStyle(color: Colors.white),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -112,6 +106,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(12),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
@@ -119,18 +114,21 @@ class _AIChatScreenState extends State<AIChatScreen> {
               },
             ),
           ),
-          Padding(
+          Container(
             padding: const EdgeInsets.all(8),
+            color: const Color.fromARGB(255, 29, 24, 62),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _ctrl,
                     decoration: const InputDecoration(
-                      hintText: "Ask Gemini...",
+                      hintText: "Ask AI...",
+                      border: OutlineInputBorder(),
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: _ask,
