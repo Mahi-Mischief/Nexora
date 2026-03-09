@@ -206,14 +206,28 @@ class AuthService {
         return getFreshFirebaseToken();
       } else {
         final tokens = await getGoogleAuthTokens();
-        if (tokens == null) return null;
+        if (tokens == null) {
+          _setLastError('Google sign-in was canceled.');
+          return null;
+        }
+        final idToken = (tokens['idToken'] ?? '').trim();
+        if (idToken.isEmpty) {
+          _setLastError(
+            'Google sign-in failed: missing ID token. Add Android SHA keys in Firebase and verify Google OAuth setup.',
+          );
+          return null;
+        }
         final credential = fb.GoogleAuthProvider.credential(
           accessToken: tokens['accessToken'],
-          idToken: tokens['idToken'],
+          idToken: idToken,
         );
         await fb.FirebaseAuth.instance.signInWithCredential(credential);
         return getFreshFirebaseToken();
       }
+    } on fb.FirebaseAuthException catch (e) {
+      debugPrint('Google Firebase auth error: ${e.code} ${e.message}');
+      _setLastError(_friendlyAuthError(e, 'Google sign-in'));
+      return null;
     } catch (e) {
       debugPrint('Google sign-in error: $e');
       _setLastError(
