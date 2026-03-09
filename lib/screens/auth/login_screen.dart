@@ -26,32 +26,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0E1A2B),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 40),
             Center(
-              child: Text(
-                'N',
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE3B857),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Center(
-              child: Text(
-                'NEXORA',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
+              child: Image.asset(
+                'assets/Nexora_logo_with name.png',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 40),
@@ -72,7 +64,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       labelText: 'Email',
                       hintText: 'Enter your email',
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -82,7 +75,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       hintText: 'Enter your password',
                     ),
                     obscureText: true,
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 24),
                   _loading
@@ -91,20 +85,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
                               setState(() => _loading = true);
-                              final ok = await ref.read(authProvider.notifier).login(_userCtrl.text, _passCtrl.text);
+                              final ok = await ref
+                                  .read(authProvider.notifier)
+                                  .login(_userCtrl.text, _passCtrl.text);
                               if (!mounted) return;
                               setState(() => _loading = false);
                               if (ok) {
                                 final auth = ref.read(authProvider);
-                                if (auth.user != null && auth.user!.firstName == null) {
+                                if (auth.user != null &&
+                                    auth.user!.firstName == null) {
                                   //Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
-                                  Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                                  Navigator.of(context).pushReplacementNamed(
+                                    ProfileInfoScreen.routeName,
+                                  );
                                 } else {
-                                  Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+                                  Navigator.of(
+                                    context,
+                                  ).pushReplacementNamed(HomeScreen.routeName);
                                 }
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(AuthService.lastAuthError ?? 'Invalid credentials')),
+                                  SnackBar(
+                                    content: Text(
+                                      AuthService.lastAuthError ??
+                                          'Invalid credentials',
+                                    ),
+                                  ),
                                 );
                               }
                             }
@@ -132,12 +138,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onPressed: () async {
                 setState(() => _loading = true);
                 try {
-                  final ok = await ref.read(authProvider.notifier).loginWithGoogle();
+                  final ok = await ref
+                      .read(authProvider.notifier)
+                      .loginWithGoogle();
                   if (!ok) {
                     if (!mounted) return;
                     setState(() => _loading = false);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(AuthService.lastAuthError ?? 'Google sign-in failed')),
+                      SnackBar(
+                        content: Text(
+                          AuthService.lastAuthError ?? 'Google sign-in failed',
+                        ),
+                      ),
                     );
                     return;
                   }
@@ -145,14 +157,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   setState(() => _loading = false);
                   final user = ref.read(authProvider).user;
                   if (user != null && user.firstName == null) {
-                    Navigator.of(context).pushReplacementNamed(ProfileInfoScreen.routeName);
+                    Navigator.of(
+                      context,
+                    ).pushReplacementNamed(ProfileInfoScreen.routeName);
                   } else {
-                    Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+                    Navigator.of(
+                      context,
+                    ).pushReplacementNamed(HomeScreen.routeName);
                   }
                 } catch (e) {
                   if (!mounted) return;
                   setState(() => _loading = false);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
             ),
@@ -165,7 +183,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   style: TextStyle(color: Colors.white70),
                 ),
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pushNamed(SignupScreen.routeName),
+                  onTap: () =>
+                      Navigator.of(context).pushNamed(SignupScreen.routeName),
                   child: Text(
                     'Sign up',
                     style: TextStyle(
@@ -177,6 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
             ),
           ],
+          ),
         ),
       ),
     );

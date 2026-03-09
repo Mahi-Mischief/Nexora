@@ -12,10 +12,12 @@ const messagesRoutes = require('./routes/messages');
 const approvalsRoutes = require('./routes/approvals');
 const socialRoutes = require('./routes/social');
 const teamsRoutes = require('./routes/teams');
+const teacherRoutes = require('./routes/teacher');
 const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 app.use(helmet());
 app.use(cors());
@@ -32,6 +34,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/approvals', approvalsRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/teams', teamsRoutes);
+app.use('/api/teacher', teacherRoutes);
 app.use('/ai', aiRoutes);
 
 // Error handler
@@ -40,8 +43,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`NEXORA backend listening on ${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`NEXORA backend listening on http://${HOST}:${PORT}`);
 });
 
 // Handle uncaught exceptions

@@ -3,7 +3,9 @@ import 'package:nexora_final/services/api.dart';
 import 'package:nexora_final/models/user.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
-import 'package:nexora_final/services/google_signin.dart' show getGoogleAuthTokens;
+import 'package:nexora_final/services/google_signin.dart'
+    show getGoogleAuthTokens;
+import 'package:nexora_final/services/firebase_flag.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -13,7 +15,41 @@ class AuthService {
     lastAuthError = message;
   }
 
+  static bool _ensureFirebaseReady(String action) {
+    if (FirebaseFlag.configured) return true;
+    _setLastError(
+      'Firebase is not configured for this run. Restart with a valid FIREBASE_WEB_API_KEY.',
+    );
+    debugPrint('Firebase $action skipped: FirebaseFlag.configured=false');
+    return false;
+  }
+
+  static String _friendlyAuthError(fb.FirebaseAuthException e, String action) {
+    switch (e.code) {
+      case 'invalid-api-key':
+        return '$action failed: invalid Firebase API key. Set FIREBASE_WEB_API_KEY and restart.';
+      case 'network-request-failed':
+        return '$action failed: network error. Check internet/Google Play Services and try again.';
+      case 'invalid-credential':
+        return '$action failed: invalid credentials. Use your email address and correct password.';
+      case 'invalid-email':
+        return '$action failed: email format is invalid.';
+      case 'user-not-found':
+      case 'wrong-password':
+        return '$action failed: incorrect email or password.';
+      case 'email-already-in-use':
+        return '$action failed: that email is already registered.';
+      case 'weak-password':
+        return '$action failed: password is too weak.';
+      case 'too-many-requests':
+        return '$action temporarily blocked: too many attempts. Try again later.';
+      default:
+        return '$action failed (${e.code}): ${e.message ?? 'Unknown error'}';
+    }
+  }
+
   static Future<String?> getFreshFirebaseToken() async {
+    if (!FirebaseFlag.configured) return null;
     try {
       final user = fb.FirebaseAuth.instance.currentUser;
       if (user == null) return null;
@@ -29,13 +65,18 @@ class AuthService {
     }
   }
 
-  static Future<Map<String, dynamic>?> _syncFirebaseUser({String? username, String? role}) async {
+  static Future<Map<String, dynamic>?> _syncFirebaseUser({
+    String? username,
+    String? role,
+  }) async {
     try {
       _setLastError(null);
       final token = await getFreshFirebaseToken();
       if (token == null) return null;
       final body = <String, dynamic>{};
-      if (username != null && username.trim().isNotEmpty) body['username'] = username.trim();
+      if (username != null && username.trim().isNotEmpty) {
+        body['username'] = username.trim();
+      }
       if (role != null && role.trim().isNotEmpty) body['role'] = role.trim();
 
       final resp = await Api.post('/api/auth/sync', body: body, token: token);
@@ -48,12 +89,18 @@ class AuthService {
       return null;
     } catch (e) {
       debugPrint('Sync error: $e');
-      _setLastError('Account sync error: $e');
+      _setLastError('Account sync error: $e (base: ${Api.baseUrl})');
       return null;
     }
   }
 
-  static Future<Map<String, dynamic>?> signup({required String username, required String email, required String password, required String role}) async {
+  static Future<Map<String, dynamic>?> signup({
+    required String username,
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    if (!_ensureFirebaseReady('Signup')) return null;
     try {
       _setLastError(null);
       await fb.FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -63,30 +110,39 @@ class AuthService {
       return _syncFirebaseUser(username: username, role: role);
     } on fb.FirebaseAuthException catch (e) {
       debugPrint('Firebase signup error: ${e.code} ${e.message}');
-      _setLastError('Signup failed (${e.code}): ${e.message ?? 'Unknown error'}');
+      _setLastError(_friendlyAuthError(e, 'Signup'));
       return null;
     } catch (e) {
       debugPrint('Signup error: $e');
-      _setLastError('Signup error: $e');
+      _setLastError('Signup error: $e (base: ${Api.baseUrl})');
       return null;
     }
   }
 
-  static Future<Map<String, dynamic>?> login({required String usernameOrEmail, required String password}) async {
+  static Future<Map<String, dynamic>?> login({
+    required String usernameOrEmail,
+    required String password,
+  }) async {
+    if (!_ensureFirebaseReady('Login')) return null;
     try {
       _setLastError(null);
+      final email = usernameOrEmail.trim();
+      if (!email.contains('@')) {
+        _setLastError('Login failed: enter your email address (not username).');
+        return null;
+      }
       await fb.FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: usernameOrEmail.trim(),
+        email: email,
         password: password,
       );
       return _syncFirebaseUser();
     } on fb.FirebaseAuthException catch (e) {
       debugPrint('Firebase login error: ${e.code} ${e.message}');
-      _setLastError('Login failed (${e.code}): ${e.message ?? 'Unknown error'}');
+      _setLastError(_friendlyAuthError(e, 'Login'));
       return null;
     } catch (e) {
       debugPrint('Login error: $e');
-      _setLastError('Login error: $e');
+      _setLastError('Login error: $e (base: ${Api.baseUrl})');
       return null;
     }
   }
@@ -107,7 +163,10 @@ class AuthService {
     }
   }
 
-  static Future<void> updateProfile({required String token, required NexoraUser user}) async {
+  static Future<void> updateProfile({
+    required String token,
+    required NexoraUser user,
+  }) async {
     try {
       final body = {
         'first_name': user.firstName,
@@ -120,10 +179,16 @@ class AuthService {
       final id = user.id;
       if (id == null) return;
       final effectiveToken = await getFreshFirebaseToken() ?? token;
-      final resp = await Api.put('/api/users/$id', body: body, token: effectiveToken);
+      final resp = await Api.put(
+        '/api/users/$id',
+        body: body,
+        token: effectiveToken,
+      );
       debugPrint('Update profile response: ${resp.statusCode}');
       if (resp.statusCode != 200) {
-        throw Exception('Failed to update profile: ${resp.statusCode} ${resp.body}');
+        throw Exception(
+          'Failed to update profile: ${resp.statusCode} ${resp.body}',
+        );
       }
     } catch (e) {
       debugPrint('Update profile error: $e');
@@ -133,6 +198,7 @@ class AuthService {
 
   // Sign in with Google via Firebase and return the Firebase ID token (JWT)
   static Future<String?> signInWithGoogle() async {
+    if (!_ensureFirebaseReady('Google sign-in')) return null;
     try {
       if (kIsWeb) {
         final tokens = await getGoogleAuthTokens();
@@ -140,17 +206,33 @@ class AuthService {
         return getFreshFirebaseToken();
       } else {
         final tokens = await getGoogleAuthTokens();
-        if (tokens == null) return null;
+        if (tokens == null) {
+          _setLastError('Google sign-in was canceled.');
+          return null;
+        }
+        final idToken = (tokens['idToken'] ?? '').trim();
+        if (idToken.isEmpty) {
+          _setLastError(
+            'Google sign-in failed: missing ID token. Add Android SHA keys in Firebase and verify Google OAuth setup.',
+          );
+          return null;
+        }
         final credential = fb.GoogleAuthProvider.credential(
           accessToken: tokens['accessToken'],
-          idToken: tokens['idToken'],
+          idToken: idToken,
         );
         await fb.FirebaseAuth.instance.signInWithCredential(credential);
         return getFreshFirebaseToken();
       }
+    } on fb.FirebaseAuthException catch (e) {
+      debugPrint('Google Firebase auth error: ${e.code} ${e.message}');
+      _setLastError(_friendlyAuthError(e, 'Google sign-in'));
+      return null;
     } catch (e) {
       debugPrint('Google sign-in error: $e');
-      _setLastError('Google sign-in error: $e');
+      _setLastError(
+        'Google sign-in error: $e. Verify internet and Firebase OAuth setup.',
+      );
       return null;
     }
   }

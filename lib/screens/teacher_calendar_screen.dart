@@ -17,7 +17,6 @@ class _TeacherCalendarScreenState extends ConsumerState<TeacherCalendarScreen> {
   DateTime _focused = DateTime.now();
   DateTime? _selected;
   Map<DateTime, List<dynamic>> _eventsMap = {};
-  List<dynamic> _allEvents = [];
   bool _loading = true;
   String? _token;
 
@@ -46,7 +45,6 @@ class _TeacherCalendarScreenState extends ConsumerState<TeacherCalendarScreen> {
       }
       
       setState(() {
-        _allEvents = events;
         _loading = false;
       });
     } catch (e) {

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "seed:placeholder-events": "node seed_placeholder_events.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
@@ -18,6 +19,7 @@
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "pdfkit": "^0.17.2",
     "pg": "^8.11.1"
   }
 }

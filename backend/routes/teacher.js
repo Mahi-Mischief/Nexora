@@ -8,12 +8,78 @@ const router = express.Router();
 // Middleware to verify token and teacher role
 router.use(verifyToken);
 
+let teacherSchemaReady = false;
+
+async function ensureTeacherSchema() {
+  if (teacherSchemaReady) return;
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS student_activities (
+      id SERIAL PRIMARY KEY,
+      student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      activity_type VARCHAR(64) NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      hours NUMERIC(8,2) NOT NULL,
+      date DATE NOT NULL,
+      approval_status VARCHAR(32) DEFAULT 'pending',
+      approved_by INT REFERENCES users(id),
+      approved_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT now()
+    )
+  `);
+
+  // Backfill columns for older databases where student_activities already exists.
+  await db.query('ALTER TABLE student_activities ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) DEFAULT \'pending\'');
+  await db.query('ALTER TABLE student_activities ADD COLUMN IF NOT EXISTS approved_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE student_activities ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP');
+
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) DEFAULT \'pending\'');
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approved_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE teams ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP');
+
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approval_status VARCHAR(32) DEFAULT \'pending\'');
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approved_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE team_members ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP');
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS event_signups (
+      id SERIAL PRIMARY KEY,
+      event_id INT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(32) NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT now(),
+      decided_by INT REFERENCES users(id),
+      decided_at TIMESTAMP,
+      UNIQUE(event_id, student_id)
+    )
+  `);
+
+  // Backfill columns for older databases where event_signups already exists.
+  await db.query('ALTER TABLE event_signups ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT \'pending\'');
+  await db.query('ALTER TABLE event_signups ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT now()');
+  await db.query('ALTER TABLE event_signups ADD COLUMN IF NOT EXISTS decided_by INT REFERENCES users(id)');
+  await db.query('ALTER TABLE event_signups ADD COLUMN IF NOT EXISTS decided_at TIMESTAMP');
+
+  teacherSchemaReady = true;
+}
+
 const verifyTeacher = (req, res, next) => {
-  if (req.userRole !== 'teacher') {
+  const role = (req.userRole || req.user?.role || '').toLowerCase();
+  if (role !== 'teacher') {
     return res.status(403).json({ error: 'Access denied. Teacher role required.' });
   }
   next();
 };
+
+router.use(async (req, res, next) => {
+  try {
+    await ensureTeacherSchema();
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 // ===== TEAM APPROVAL ENDPOINTS =====
 
@@ -290,8 +356,8 @@ router.post('/students/:id/activities', verifyTeacher, async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO student_activities (student_id, activity_type, title, description, hours, date)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO student_activities (student_id, activity_type, title, description, hours, date, approval_status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'approved')
        RETURNING *`,
       [studentId, activity_type, title, description || '', parseFloat(hours), date]
     );
@@ -299,6 +365,168 @@ router.post('/students/:id/activities', verifyTeacher, async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error adding activity:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/teacher/approvals/activities
+ * Pending volunteering/activity hour approvals in teacher's school
+ */
+router.get('/approvals/activities', verifyTeacher, async (req, res) => {
+  try {
+    const { rows: schoolRows } = await db.query('SELECT school FROM users WHERE id = $1', [req.userId]);
+    const school = schoolRows[0]?.school;
+    if (!school) return res.status(400).json({ error: 'Teacher school not set' });
+
+    const { rows } = await db.query(
+      `SELECT
+        sa.id,
+        sa.student_id,
+        sa.activity_type,
+        sa.title,
+        sa.description,
+        sa.hours,
+        sa.date,
+        sa.approval_status,
+        sa.created_at,
+        u.username,
+        u.first_name,
+        u.last_name,
+        u.school
+      FROM student_activities sa
+      JOIN users u ON u.id = sa.student_id
+      WHERE u.school = $1 AND COALESCE(sa.approval_status, 'pending') = 'pending'
+      ORDER BY sa.created_at DESC`,
+      [school],
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching pending activities:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/teacher/students/:studentId/activities/:activityId/approve
+ */
+router.put('/students/:studentId/activities/:activityId/approve', verifyTeacher, async (req, res) => {
+  try {
+    const activityId = parseInt(req.params.activityId);
+    const { rows } = await db.query(
+      `UPDATE student_activities
+       SET approval_status = 'approved', approved_by = $1, approved_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [req.userId, activityId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Activity not found' });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error approving activity:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/teacher/students/:studentId/activities/:activityId/reject
+ */
+router.put('/students/:studentId/activities/:activityId/reject', verifyTeacher, async (req, res) => {
+  try {
+    const activityId = parseInt(req.params.activityId);
+    const { rows } = await db.query(
+      `UPDATE student_activities
+       SET approval_status = 'rejected', approved_by = $1, approved_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [req.userId, activityId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Activity not found' });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error rejecting activity:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/teacher/approvals/signups
+ * Pending event/volunteering signups for teacher's school
+ */
+router.get('/approvals/signups', verifyTeacher, async (req, res) => {
+  try {
+    const { rows: schoolRows } = await db.query('SELECT school FROM users WHERE id = $1', [req.userId]);
+    const school = schoolRows[0]?.school;
+    if (!school) return res.status(400).json({ error: 'Teacher school not set' });
+
+    const { rows } = await db.query(
+      `SELECT
+        es.id,
+        es.event_id,
+        es.student_id,
+        es.status,
+        es.created_at,
+        e.title AS event_title,
+        e.date AS event_date,
+        e.event_type,
+        u.username,
+        u.first_name,
+        u.last_name,
+        u.school
+      FROM event_signups es
+      JOIN events e ON e.id = es.event_id
+      JOIN users u ON u.id = es.student_id
+      WHERE e.school = $1 AND es.status = 'pending'
+      ORDER BY es.created_at DESC`,
+      [school],
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching pending signups:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/teacher/events/:eventId/signups/:signupId/approve
+ */
+router.put('/events/:eventId/signups/:signupId/approve', verifyTeacher, async (req, res) => {
+  try {
+    const signupId = parseInt(req.params.signupId);
+    const { rows } = await db.query(
+      `UPDATE event_signups
+       SET status = 'approved', decided_by = $1, decided_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [req.userId, signupId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Signup not found' });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error approving signup:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/teacher/events/:eventId/signups/:signupId/reject
+ */
+router.put('/events/:eventId/signups/:signupId/reject', verifyTeacher, async (req, res) => {
+  try {
+    const signupId = parseInt(req.params.signupId);
+    const { rows } = await db.query(
+      `UPDATE event_signups
+       SET status = 'rejected', decided_by = $1, decided_at = now()
+       WHERE id = $2
+       RETURNING *`,
+      [req.userId, signupId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Signup not found' });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error rejecting signup:', error.message);
     res.status(500).json({ error: error.message });
   }
 });

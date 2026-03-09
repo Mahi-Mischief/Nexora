@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS announcements (
   id SERIAL PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   content TEXT,
+  school VARCHAR(128),
   created_by INT REFERENCES users(id),
+  updated_at TIMESTAMP DEFAULT now(),
   created_at TIMESTAMP DEFAULT now()
 );
 

@@ -9,6 +9,8 @@ import 'dart:convert';
 import 'package:nexora_final/models/user.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:nexora_final/providers/auth_provider.dart';
+import 'package:nexora_final/services/event_service.dart';
+import 'package:nexora_final/services/teacher_service.dart';
 
 class EventsScreen extends ConsumerStatefulWidget {
   const EventsScreen({super.key});
@@ -17,9 +19,10 @@ class EventsScreen extends ConsumerStatefulWidget {
   ConsumerState<EventsScreen> createState() => _EventsScreenState();
 }
 
-class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerProviderStateMixin {
+class _EventsScreenState extends ConsumerState<EventsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,15 +50,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildTeamsTab(),
-          _buildVolunteeringTab(),
-        ],
+        children: [_buildTeamsTab(), _buildVolunteeringTab()],
       ),
     );
   }
 
   Widget _buildTeamsTab() {
+    final isTeacher =
+        ref.watch(authProvider).user?.role?.toLowerCase() == 'teacher';
+
     return FutureBuilder<Map<String, dynamic>>(
       future: _loadTeamData(),
       builder: (context, snapshot) {
@@ -73,31 +76,43 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
         final userTeam = data['userTeam'] as Team?;
 
         // If user is in a team, show team detail view
-        if (userTeam != null && userTeamId != null) {
+        if (!isTeacher && userTeam != null && userTeamId != null) {
           return _buildTeamDetailView(userTeam);
         }
 
         // Otherwise show team list for joining
         return Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Create a Team'),
-                onPressed: () async {
-                  final school = data['school'] as String? ?? 'Unknown';
-                  final result = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => TeamQuestionnaireScreen(school: school),
-                    ),
-                  );
-                  if (result == true && mounted) {
-                    setState(() {});
-                  }
-                },
+            if (!isTeacher)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Create a Team'),
+                  onPressed: () async {
+                    final school = data['school'] as String? ?? 'Unknown';
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => TeamQuestionnaireScreen(school: school),
+                      ),
+                    );
+                    if (result == true && mounted) {
+                      setState(() {});
+                    }
+                  },
+                ),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Teacher view: browse teams and tasks (read-only).',
+                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                  ),
+                ),
               ),
-            ),
             Expanded(
               child: teams.isEmpty
                   ? Center(
@@ -106,11 +121,18 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.group, size: 64, color: Colors.grey[400]),
+                            Icon(
+                              Icons.group,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
                             const SizedBox(height: 16),
                             const Text(
                               'No teams yet',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -138,7 +160,9 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                             ),
                             title: Text(
                               team.name,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,66 +173,88 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                                   style: const TextStyle(fontSize: 13),
                                 ),
                                 const SizedBox(height: 4),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    Icon(Icons.people, size: 14, color: Colors.grey[600]),
-                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.people,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
                                     Text(
                                       '${team.memberCount} members',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Icon(Icons.person, size: 14, color: Colors.grey[600]),
-                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.person,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
                                     Text(
                                       'Led by ${team.createdByUsername}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
                             isThreeLine: true,
-                            trailing: isUserInTeam
+                            trailing: isTeacher
+                                ? const Chip(label: Text('View Only'))
+                                : isUserInTeam
                                 ? const Chip(label: Text('Joined'))
                                 : ElevatedButton(
                                     onPressed: () => _joinTeam(team.id!),
                                     child: const Text('Join'),
                                   ),
-                            onTap: isUserInTeam
-                                ? null
-                                : () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: Text(team.name),
-                                        content: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text('Event: ${team.eventType} - ${team.eventName}'),
-                                            const SizedBox(height: 8),
-                                            Text('Members: ${team.memberCount}'),
-                                            const SizedBox(height: 8),
-                                            Text('Leader: ${team.createdByUsername}'),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                            child: const Text('Cancel'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.pop(context);
-                                              _joinTeam(team.id!);
-                                            },
-                                            child: const Text('Join Team'),
-                                          ),
-                                        ],
+                            onTap: () {
+                              if (isTeacher) {
+                                _showTeamTasksReadOnly(team);
+                                return;
+                              }
+                              if (isUserInTeam) return;
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text(team.name),
+                                  content: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Event: ${team.eventType} - ${team.eventName}',
                                       ),
-                                    );
-                                  },
+                                      const SizedBox(height: 8),
+                                      Text('Members: ${team.memberCount}'),
+                                      const SizedBox(height: 8),
+                                      Text('Leader: ${team.createdByUsername}'),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        _joinTeam(team.id!);
+                                      },
+                                      child: const Text('Join Team'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
@@ -236,7 +282,10 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                   children: [
                     Text(
                       team.name,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -244,14 +293,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                       style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Icon(Icons.people, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
                         Text('${team.memberCount} members'),
-                        const SizedBox(width: 16),
                         Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
                         Text('Led by ${team.createdByUsername}'),
                       ],
                     ),
@@ -274,9 +323,13 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                 subtitle: const Text('View scoring rubrics and guidelines'),
                 trailing: const Icon(Icons.open_in_new),
                 onTap: () async {
-                  final url = 'https://www.fbla.org/participants/competitive-events/';
+                  final url =
+                      'https://www.fbla.org/participants/competitive-events/';
                   if (await canLaunchUrl(Uri.parse(url))) {
-                    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                    await launchUrl(
+                      Uri.parse(url),
+                      mode: LaunchMode.externalApplication,
+                    );
                   }
                 },
               ),
@@ -318,7 +371,11 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         children: [
-                          Icon(Icons.checklist, size: 48, color: Colors.grey[400]),
+                          Icon(
+                            Icons.checklist,
+                            size: 48,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'No tasks yet',
@@ -350,7 +407,9 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                         title: Text(
                           task.title,
                           style: TextStyle(
-                            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                            decoration: task.isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
                             color: task.isCompleted ? Colors.grey[600] : null,
                           ),
                         ),
@@ -412,14 +471,80 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
       setState(() {});
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to join team. You may already be in a team.')),
+        const SnackBar(
+          content: Text('Failed to join team. You may already be in a team.'),
+        ),
       );
     }
   }
 
+  Future<void> _showTeamTasksReadOnly(Team team) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('nexora_token');
+    if (token == null || !mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FutureBuilder<List<TeamTask>>(
+        future: TeamService.fetchTeamTasks(team.id!, token: token),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 220,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          final tasks = snapshot.data ?? <TeamTask>[];
+          return SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${team.name} - Team Tasks',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: tasks.isEmpty
+                        ? const Center(child: Text('No tasks added yet'))
+                        : ListView.builder(
+                            itemCount: tasks.length,
+                            itemBuilder: (context, index) {
+                              final task = tasks[index];
+                              return ListTile(
+                                leading: Icon(
+                                  task.isCompleted
+                                      ? Icons.check_circle
+                                      : Icons.radio_button_unchecked,
+                                  color: task.isCompleted
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                                title: Text(task.title),
+                                subtitle: Text('By ${task.createdBy}'),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _showAddTaskDialog(int teamId) async {
     final controller = TextEditingController();
-    
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -441,7 +566,8 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
             onPressed: () async {
               if (controller.text.isNotEmpty) {
                 await _createTask(teamId, controller.text);
-                if (mounted) Navigator.pop(context);
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
               }
             },
             child: const Text('Add'),
@@ -459,14 +585,14 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
 
     final success = await TeamService.createTask(teamId, title, token: token);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Task added!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task added!')));
       setState(() {});
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to add task')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to add task')));
     }
   }
 
@@ -476,7 +602,12 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
 
     if (token == null) return;
 
-    final success = await TeamService.updateTask(teamId, taskId, isCompleted, token: token);
+    final success = await TeamService.updateTask(
+      teamId,
+      taskId,
+      isCompleted,
+      token: token,
+    );
     if (success && mounted) {
       setState(() {});
     }
@@ -490,9 +621,9 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
 
     final success = await TeamService.deleteTask(teamId, taskId, token: token);
     if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Task deleted')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Task deleted')));
       setState(() {});
     }
   }
@@ -500,15 +631,15 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
   Widget _buildVolunteeringTab() {
     final user = ref.watch(authProvider).user;
     final isTeacher = user?.role?.toLowerCase() == 'teacher';
-    
-    return FutureBuilder<List<Map<String, dynamic>>>(
+
+    return FutureBuilder<List<dynamic>>(
       future: _loadVolunteeringEvents(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final events = snapshot.data ?? [];
+        final events = snapshot.data ?? <dynamic>[];
 
         return SingleChildScrollView(
           child: Padding(
@@ -519,7 +650,13 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Available Opportunities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Available Opportunities',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     if (isTeacher)
                       ElevatedButton.icon(
                         onPressed: () => _showCreateEventDialog(context, user),
@@ -535,12 +672,24 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                       padding: const EdgeInsets.all(32),
                       child: Column(
                         children: [
-                          Icon(Icons.volunteer_activism, size: 64, color: Colors.grey[400]),
+                          Icon(
+                            Icons.volunteer_activism,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
                           const SizedBox(height: 16),
-                          const Text('No volunteering events yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text(
+                            'No volunteering events yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Text(
-                            isTeacher ? 'Create one to get started!' : 'Check back later for opportunities',
+                            isTeacher
+                                ? 'Create one to get started!'
+                                : 'Check back later for opportunities',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey[600]),
                           ),
@@ -554,7 +703,10 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: events.length,
                     itemBuilder: (context, index) {
-                      final event = events[index];
+                      final event = events[index] as Map<String, dynamic>;
+                      final date = DateTime.tryParse(
+                        event['date']?.toString() ?? '',
+                      );
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: Padding(
@@ -563,72 +715,107 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      event['title'] ?? 'Untitled Event',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                      overflow: TextOverflow.ellipsis,
+                                      event['title']?.toString() ??
+                                          'Untitled Event',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                  if (isTeacher && event['createdBy'] == user?.id)
+                                  if (isTeacher &&
+                                      event['created_by'] == user?.id)
                                     IconButton(
                                       icon: const Icon(Icons.delete, size: 20),
-                                      onPressed: () => _deleteEvent(context, index),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                        ),
-                                    ],
+                                      onPressed: () => _deleteEventDialog(
+                                        context,
+                                        event['id'] as int,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if ((event['description'] ?? '')
+                                  .toString()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  event['description'].toString(),
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 16,
+                                    color: Colors.grey[600],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(event['description'] ?? '', style: TextStyle(color: Colors.grey[700])),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                                      const SizedBox(width: 4),
-                                      Text('${event['hours']} hours', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                                      const SizedBox(width: 16),
-                                      Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                                      const SizedBox(width: 4),
-                                      Expanded(child: Text(event['location'] ?? 'TBD', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    'Created by: ${event['createdByName'] ?? 'Unknown'}',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                    date == null
+                                        ? 'Date not set'
+                                        : '${date.toLocal().toString().split(' ')[0]} ${TimeOfDay.fromDateTime(date).format(context)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 16,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      (event['location'] ?? 'TBD').toString(),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (!isTeacher) ...[
+                                const SizedBox(height: 10),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _signupForEvent(event['id'] as int),
+                                    icon: const Icon(Icons.how_to_reg),
+                                    label: const Text('Sign Up'),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
         );
-      }
-
-  Future<List<Map<String, dynamic>>> _loadVolunteeringEvents() async {
-    final prefs = await SharedPreferences.getInstance();
-    final eventsJson = prefs.getString('volunteering_events');
-    if (eventsJson == null) return [];
-    try {
-      final decoded = jsonDecode(eventsJson) as List;
-      return decoded.cast<Map<String, dynamic>>();
-    } catch (_) {
-      return [];
-    }
+      },
+    );
   }
 
-  Future<void> _saveVolunteeringEvents(List<Map<String, dynamic>> events) async {
+  Future<List<dynamic>> _loadVolunteeringEvents() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('volunteering_events', jsonEncode(events));
+    final token = prefs.getString('nexora_token');
+    return EventService.fetchEvents(token: token, eventType: 'volunteering');
   }
 
   void _showCreateEventDialog(BuildContext context, NexoraUser? user) {
@@ -648,24 +835,36 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Event Title', hintText: 'e.g., Community Cleanup'),
+                  decoration: const InputDecoration(
+                    labelText: 'Event Title',
+                    hintText: 'e.g., Community Cleanup',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description', hintText: 'What will volunteers do?'),
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'What will volunteers do?',
+                  ),
                   maxLines: 3,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: locationController,
-                  decoration: const InputDecoration(labelText: 'Location', hintText: 'Where will this happen?'),
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    hintText: 'Where will this happen?',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Hours: ${hours.toStringAsFixed(1)}', style: const TextStyle(fontSize: 14)),
+                      child: Text(
+                        'Hours: ${hours.toStringAsFixed(1)}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
                     ),
                     SizedBox(
                       width: 100,
@@ -691,35 +890,46 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
               onPressed: () async {
                 if (titleController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter an event title')),
+                    const SnackBar(
+                      content: Text('Please enter an event title'),
+                    ),
                   );
                   return;
                 }
 
-                final events = await _loadVolunteeringEvents();
-                final newEvent = {
-                  'id': DateTime.now().millisecondsSinceEpoch,
-                  'title': titleController.text,
-                  'description': descriptionController.text,
-                  'location': locationController.text.isEmpty ? 'TBD' : locationController.text,
-                  'hours': hours,
-                  'createdAt': DateTime.now().toIso8601String(),
-                  'createdBy': user?.id ?? 0,
-                  'createdByName': '${user?.firstName ?? ""} ${user?.lastName ?? ""}'.trim(),
-                };
-
-                // Get user info properly
+                final navigator = Navigator.of(context);
                 final scaffold = ScaffoldMessenger.of(context);
+                final prefs = await SharedPreferences.getInstance();
+                final token = prefs.getString('nexora_token');
                 if (mounted) {
-                  Navigator.pop(context);
+                  navigator.pop();
                 }
 
-                events.add(newEvent);
-                await _saveVolunteeringEvents(events);
-                setState(() {});
+                if (token == null) return;
+                final event = {
+                  'title': titleController.text.trim(),
+                  'description': descriptionController.text.trim(),
+                  'details': descriptionController.text.trim(),
+                  'location': locationController.text.trim(),
+                  'date': DateTime.now()
+                      .add(const Duration(days: 1))
+                      .toIso8601String(),
+                  'event_type': 'volunteering',
+                };
+
+                final success = await TeacherService.createEvent(token, event);
+                if (success) {
+                  setState(() {});
+                }
 
                 scaffold.showSnackBar(
-                  const SnackBar(content: Text('Event created successfully!')),
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? 'Event created successfully!'
+                          : 'Failed to create event',
+                    ),
+                  ),
                 );
               },
               child: const Text('Create'),
@@ -730,7 +940,42 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
     );
   }
 
-  void _deleteEvent(BuildContext context, int index) async {
+  Future<void> _deleteEvent(int eventId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('nexora_token');
+    if (token == null) return;
+
+    final success = await TeacherService.deleteEvent(token, eventId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success ? 'Event deleted' : 'Failed to delete event'),
+      ),
+    );
+    if (success) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _signupForEvent(int eventId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('nexora_token');
+    if (token == null) return;
+
+    final success = await EventService.signupForEvent(eventId, token: token);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Signup request submitted for teacher approval'
+              : 'Could not submit signup request',
+        ),
+      ),
+    );
+  }
+
+  void _deleteEventDialog(BuildContext context, int eventId) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -744,15 +989,7 @@ class _EventsScreenState extends ConsumerState<EventsScreen> with SingleTickerPr
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              final events = await _loadVolunteeringEvents();
-              events.removeAt(index);
-              await _saveVolunteeringEvents(events);
-              setState(() {});
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Event deleted')),
-                );
-              }
+              await _deleteEvent(eventId);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
